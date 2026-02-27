@@ -26,7 +26,6 @@ services:
   - type: web
     name: hospital-frontend
     env: static
-    region: oregon
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     envVars:
