@@ -2,12 +2,11 @@
 # This file defines the services to deploy to Render
 
 services:
-  # Backend API Service (Free Tier)
+  # Backend API Service
   - type: web
     name: hospital-backend
     env: node
     region: oregon
-    plan: free
     buildCommand: cd backend && npm install
     startCommand: cd backend && npm start
     envVars:
@@ -23,11 +22,10 @@ services:
         # Update this with your frontend URL after deployment
         value: "https://your-frontend.onrender.com"
 
-  # Frontend Static Site (Free Tier)
+  # Frontend Static Site
   - type: web
     name: hospital-frontend
     env: static
-    plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     envVars:
