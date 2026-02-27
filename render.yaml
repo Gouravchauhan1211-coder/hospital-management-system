@@ -1,0 +1,43 @@
+# Render Blueprint Configuration
+# This file defines the services to deploy to Render
+
+services:
+  # Backend API Service
+  - type: web
+    name: hospital-backend
+    env: node
+    region: oregon
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        # Update this with your frontend URL after deployment
+        value: "https://your-frontend.onrender.com"
+
+  # Frontend Static Site
+  - type: web
+    name: hospital-frontend
+    env: static
+    region: oregon
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+
+# Database (if using Render's managed PostgreSQL)
+# Uncomment if you want to use Render's PostgreSQL instead of Supabase
+# databases:
+#   - name: hospital_db
+#     plan: free
+#     region: oregon
