@@ -1,0 +1,618 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   HOSPITAL MANAGEMENT SYSTEM - MEDICAL BLUE THEME
+   A professional, clean healthcare color scheme
+   ============================================================ */
+
+/* CSS Custom Properties for easy theming */
+:root {
+  /* Primary Medical Blue */
+  --primary: #0EA5E9;
+  --primary-dark: #0284C7;
+  --primary-light: #38BDF8;
+  --primary-50: #F0F9FF;
+  --primary-100: #E0F2FE;
+  
+  /* Secondary Colors */
+  --secondary: #0284C7;
+  --accent: #06B6D4;
+  
+  /* Semantic Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  
+  /* Background Colors */
+  --bg-primary: #F0F9FF;
+  --bg-secondary: #FFFFFF;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  
+  /* Text Colors */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-light: #64748B;
+  
+  /* Border Colors */
+  --border-light: rgba(14, 165, 233, 0.15);
+  --border-medium: rgba(14, 165, 233, 0.3);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+@layer base {
+  * {
+    border-color: var(--border-light);
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    /* Clean medical blue gradient background */
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #F0F9FF 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: var(--text-primary);
+  }
+
+  /* Custom scrollbar - Medical Blue theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #E0F2FE;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #0EA5E9, #0284C7);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #0284C7, #0369A1);
+  }
+
+  /* Selection - Medical Blue */
+  ::selection {
+    background: rgba(14, 165, 233, 0.3);
+    color: #0F172A;
+  }
+}
+
+/* ============================================================
+   COMPONENT STYLES
+   ============================================================ */
+
+@layer components {
+  /* Glass Card - Medical Blue Theme */
+  .glass {
+    @apply rounded-2xl shadow-glass;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    backdrop-filter: blur(10px);
+  }
+
+  .glass-light {
+    @apply rounded-2xl shadow-glass;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    backdrop-filter: blur(12px);
+  }
+
+  .glass-dark {
+    @apply rounded-2xl shadow-glass;
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .glass-card {
+    @apply rounded-2xl shadow-glass transition-all duration-300 ease-out;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    backdrop-filter: blur(10px);
+  }
+
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 16px 48px rgba(14, 165, 233, 0.15);
+    transform: translateY(-2px);
+    border-color: rgba(14, 165, 233, 0.25);
+  }
+
+  /* Neumorphic Button - Medical Blue */
+  .neu-btn {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200 ease-out;
+    background: linear-gradient(145deg, #ffffff, #f0f9ff);
+    box-shadow: 5px 5px 10px rgba(14, 165, 233, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+  }
+
+  .neu-btn:hover {
+    @apply scale-[1.02];
+    box-shadow: 6px 6px 12px rgba(14, 165, 233, 0.15), -6px -6px 12px rgba(255, 255, 255, 0.95);
+  }
+
+  .neu-btn:active {
+    box-shadow: inset 3px 3px 6px rgba(14, 165, 233, 0.1), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+    @apply scale-[0.98];
+  }
+
+  .neu-btn-primary {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200 ease-out text-white;
+    background: linear-gradient(145deg, #0EA5E9, #0284C7);
+    box-shadow: 5px 5px 10px rgba(14, 165, 233, 0.3), -5px -5px 10px rgba(14, 165, 233, 0.1);
+  }
+
+  .neu-btn-primary:hover {
+    @apply scale-[1.02];
+    background: linear-gradient(145deg, #38BDF8, #0EA5E9);
+  }
+
+  .neu-btn-primary:active {
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.2), inset -3px -3px 6px rgba(14, 165, 233, 0.3);
+    @apply scale-[0.98];
+  }
+
+  /* Glass Button - Medical Blue */
+  .glass-btn {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200 ease-out
+           backdrop-blur-md border;
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(14, 165, 233, 0.2);
+    color: var(--text-primary);
+  }
+
+  .glass-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    @apply scale-[1.02];
+    border-color: rgba(14, 165, 233, 0.4);
+  }
+
+  .glass-btn:active {
+    background: rgba(255, 255, 255, 0.9);
+    @apply scale-[0.98];
+  }
+
+  /* Glass Input - Medical Blue */
+  .glass-input {
+    @apply w-full px-4 py-3 rounded-xl backdrop-blur-md border outline-none transition-all duration-200;
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(14, 165, 233, 0.2);
+    color: var(--text-primary);
+  }
+
+  .glass-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .glass-input:focus {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+  }
+
+  .glass-input-error {
+    border-color: var(--error) !important;
+  }
+
+  /* Neumorphic Input - Medical Blue */
+  .neu-input {
+    @apply w-full px-4 py-3 rounded-xl outline-none transition-all duration-200;
+    background: #F0F9FF;
+    box-shadow: inset 3px 3px 6px rgba(14, 165, 233, 0.1), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+  }
+
+  .neu-input:focus {
+    box-shadow: inset 4px 4px 8px rgba(14, 165, 233, 0.15), inset -4px -4px 8px rgba(255, 255, 255, 0.95);
+    background: #FFFFFF;
+  }
+
+  /* Floating Blob Animation - Medical Blue */
+  .blob {
+    @apply absolute rounded-full blur-3xl opacity-30 animate-float;
+  }
+
+  /* Sidebar - Medical Blue Theme */
+  .sidebar {
+    @apply fixed left-0 top-0 h-full w-64 z-40 transition-transform duration-300 ease-out;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%);
+    border-right: 1px solid rgba(14, 165, 233, 0.15);
+    backdrop-filter: blur(10px);
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ease-out;
+    color: var(--text-secondary);
+  }
+
+  .sidebar-link:hover {
+    background: rgba(14, 165, 233, 0.1);
+    color: var(--primary-dark);
+  }
+
+  .sidebar-link.active {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--primary-dark);
+    font-weight: 500;
+    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.1);
+    border-left: 3px solid var(--primary);
+  }
+
+  /* Badge - Medical Blue Theme */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-700;
+  }
+
+  .badge-primary {
+    @apply bg-sky-100 text-sky-700;
+  }
+
+  /* Stat Card - Medical Blue Theme */
+  .stat-card {
+    @apply glass-card p-6 flex flex-col gap-2;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold;
+    color: var(--primary-dark);
+  }
+
+  .stat-label {
+    @apply text-sm;
+    color: var(--text-muted);
+  }
+
+  /* Table - Medical Blue Theme */
+  .glass-table {
+    @apply w-full;
+  }
+
+  .glass-table th {
+    @apply px-4 py-3 text-left text-sm font-medium border-b;
+    color: var(--text-muted);
+    border-color: var(--border-light);
+  }
+
+  .glass-table td {
+    @apply px-4 py-3 text-sm border-b;
+    color: var(--text-secondary);
+    border-color: var(--border-light);
+  }
+
+  .glass-table tr:hover td {
+    background: rgba(14, 165, 233, 0.05);
+  }
+
+  /* Modal - Medical Blue Theme */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-content {
+    @apply p-6 max-w-md w-full mx-4 animate-scale-in;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(14, 165, 233, 0.2);
+  }
+
+  /* Skeleton Loading - Medical Blue */
+  .skeleton {
+    @apply rounded animate-pulse;
+    background: linear-gradient(90deg, #E0F2FE 25%, #F0F9FF 50%, #E0F2FE 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Dropdown - Medical Blue Theme */
+  .dropdown {
+    @apply rounded-xl overflow-hidden;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    box-shadow: 0 16px 48px rgba(14, 165, 233, 0.15);
+  }
+
+  .dropdown-item {
+    @apply px-4 py-2 text-sm cursor-pointer transition-colors;
+    color: var(--text-secondary);
+  }
+
+  .dropdown-item:hover {
+    background: rgba(14, 165, 233, 0.1);
+    color: var(--primary-dark);
+  }
+
+  /* Avatar - Medical Blue Theme */
+  .avatar {
+    @apply rounded-full object-cover;
+    ring: 2px solid rgba(14, 165, 233, 0.2);
+  }
+
+  .avatar-sm {
+    @apply w-8 h-8;
+  }
+
+  .avatar-md {
+    @apply w-10 h-10;
+  }
+
+  .avatar-lg {
+    @apply w-12 h-12;
+  }
+
+  .avatar-xl {
+    @apply w-16 h-16;
+  }
+}
+
+/* ============================================================
+   UTILITY STYLES
+   ============================================================ */
+
+@layer utilities {
+  /* Text Gradient - Medical Blue */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r;
+    background-image: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%);
+  }
+
+  /* Hide scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Glass border gradient - Medical Blue */
+  .border-gradient {
+    position: relative;
+  }
+
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(6, 182, 212, 0.1));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Smooth transitions */
+  .transition-smooth {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Focus ring - Medical Blue */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    --tw-ring-color: rgba(14, 165, 233, 0.5);
+    --tw-ring-offset-color: white;
+  }
+
+  /* Gradient text - Medical Blue */
+  .gradient-text {
+    background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(14, 165, 233, 0.5);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Page transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+/* ============================================================
+   MEDICAL STATUS COLORS
+   ============================================================ */
+
+/* Appointment Status Colors */
+.status-pending {
+  @apply bg-amber-100 text-amber-700 border border-amber-200;
+}
+
+.status-confirmed {
+  @apply bg-sky-100 text-sky-700 border border-sky-200;
+}
+
+.status-completed {
+  @apply bg-emerald-100 text-emerald-700 border border-emerald-200;
+}
+
+.status-cancelled {
+  @apply bg-red-100 text-red-700 border border-red-200;
+}
+
+.status-rescheduled {
+  @apply bg-violet-100 text-violet-700 border border-violet-200;
+}
+
+.status-no-show {
+  @apply bg-gray-100 text-gray-700 border border-gray-200;
+}
+
+/* Urgency Level Colors */
+.urgency-emergency {
+  @apply bg-red-500 text-white;
+}
+
+.urgency-urgent {
+  @apply bg-orange-500 text-white;
+}
+
+.urgency-routine {
+  @apply bg-sky-500 text-white;
+}
+
+/* ============================================================
+   DARK MODE SUPPORT (Optional)
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0F172A;
+    --bg-secondary: #1E293B;
+    --bg-card: rgba(30, 41, 59, 0.95);
+    
+    --text-primary: #F8FAFC;
+    --text-secondary: #CBD5E1;
+    --text-muted: #64748B;
+    
+    --border-light: rgba(14, 165, 233, 0.2);
+    --border-medium: rgba(14, 165, 233, 0.3);
+  }
+  
+  body {
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+  }
+  
+  .glass, .glass-card, .glass-light {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(14, 165, 233, 0.2);
+  }
+  
+  .sidebar {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+  }
+}

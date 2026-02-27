@@ -1,0 +1,5 @@
+export { default as DoctorDashboard } from './DoctorDashboard'
+export { default as DoctorMessagesPage } from './DoctorMessagesPage'
+export { default as DoctorAppointmentsPage } from './DoctorAppointmentsPage'
+export { default as DoctorAvailabilityPage } from './DoctorAvailabilityPage'
+export { default as DoctorPatientsPage } from './DoctorPatientsPage'
