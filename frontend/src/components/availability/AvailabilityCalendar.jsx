@@ -418,7 +418,7 @@ const AvailabilityCalendar = ({ doctorId, initialAvailability = {} }) => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                  className="flex-1 px-4 py-2 bg-yellow-600 text-gray-800 rounded-lg hover:bg-yellow-700"
                 >
                   Set Break
                 </button>
@@ -432,3 +432,4 @@ const AvailabilityCalendar = ({ doctorId, initialAvailability = {} }) => {
 }
 
 export default AvailabilityCalendar
+

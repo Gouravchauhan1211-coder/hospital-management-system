@@ -114,8 +114,8 @@ const PatientPrescriptionsPage = () => {
       <header className="sticky top-0 z-50 px-5 pt-8 pb-4" style={{ background: 'rgba(30,58,95,0.95)', backdropFilter: 'blur(10px)' }}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">My Prescriptions</h1>
-            <p className="text-sm text-white/60">Manage your medications</p>
+            <h1 className="text-2xl font-bold text-gray-800">My Prescriptions</h1>
+            <p className="text-sm text-gray-600">Manage your medications</p>
           </div>
           <Link to="/patient/appointments">
             <Button variant="primary" size="sm">
@@ -128,19 +128,19 @@ const PatientPrescriptionsPage = () => {
         {/* Search and Filter */}
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="text"
               placeholder="Search medications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-white/40"
+              className="w-full h-11 pl-10 pr-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-500"
             />
           </div>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-11 px-4 bg-white/10 border border-white/10 rounded-xl text-white"
+            className="h-11 px-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-800"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -152,7 +152,7 @@ const PatientPrescriptionsPage = () => {
       <main className="px-5 pb-24">
         {/* Active Prescriptions */}
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Pill className="w-5 h-5 text-green-400" />
             Active Medications
             <Badge variant="success" className="ml-2">{activePrescriptions.length}</Badge>
@@ -176,33 +176,33 @@ const PatientPrescriptionsPage = () => {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h3 className="font-bold text-white text-lg">{prescription.medication_name}</h3>
-                      <p className="text-sm text-white/60">{prescription.dosage}</p>
+                      <h3 className="font-bold text-gray-800 text-lg">{prescription.medication_name}</h3>
+                      <p className="text-sm text-gray-600">{prescription.dosage}</p>
                     </div>
                     <Badge variant="success">Active</Badge>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-800/70">
                       <Clock className="w-4 h-4" />
                       <span>{prescription.frequency}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-800/70">
                       <Calendar className="w-4 h-4" />
                       <span>Until {prescription.duration}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-800/70">
                       <User className="w-4 h-4" />
                       <span>Dr. {prescription.prescribed_by}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-800/70">
                       <Calendar className="w-4 h-4" />
                       <span>{format(new Date(prescription.prescribed_date), 'MMM d, yyyy')}</span>
                     </div>
                   </div>
 
                   {prescription.notes && (
-                    <p className="text-sm text-white/60 mb-4 italic">{prescription.notes}</p>
+                    <p className="text-sm text-gray-600 mb-4 italic">{prescription.notes}</p>
                   )}
 
                   <div className="flex gap-2">
@@ -242,8 +242,8 @@ const PatientPrescriptionsPage = () => {
         {/* Past Prescriptions */}
         {expiredPrescriptions.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-white/60" />
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-gray-600" />
               Past Prescriptions
             </h2>
             
@@ -259,8 +259,8 @@ const PatientPrescriptionsPage = () => {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold text-white">{prescription.medication_name}</h3>
-                      <p className="text-xs text-white/50">{prescription.prescribed_by} • {format(new Date(prescription.prescribed_date), 'MMM yyyy')}</p>
+                      <h3 className="font-semibold text-gray-800">{prescription.medication_name}</h3>
+                      <p className="text-xs text-gray-800/50">{prescription.prescribed_by} • {format(new Date(prescription.prescribed_date), 'MMM yyyy')}</p>
                     </div>
                     <Badge variant="default">Expired</Badge>
                   </div>
@@ -280,19 +280,19 @@ const PatientPrescriptionsPage = () => {
         <div className="space-y-4">
           {selectedPrescription && (
             <>
-              <div className="p-4 rounded-xl bg-white/5">
-                <h4 className="font-semibold text-white">{selectedPrescription.medication_name}</h4>
-                <p className="text-sm text-white/60">{selectedPrescription.dosage} - {selectedPrescription.frequency}</p>
-                <p className="text-sm text-white/60">Prescribed by: Dr. {selectedPrescription.prescribed_by}</p>
+              <div className="p-4 rounded-xl bg-gray-50">
+                <h4 className="font-semibold text-gray-800">{selectedPrescription.medication_name}</h4>
+                <p className="text-sm text-gray-600">{selectedPrescription.dosage} - {selectedPrescription.frequency}</p>
+                <p className="text-sm text-gray-600">Prescribed by: Dr. {selectedPrescription.prescribed_by}</p>
               </div>
               
               <div>
-                <label className="block text-sm text-white/70 mb-2">Additional Notes (Optional)</label>
+                <label className="block text-sm text-gray-800/70 mb-2">Additional Notes (Optional)</label>
                 <textarea
                   value={refillNotes}
                   onChange={(e) => setRefillNotes(e.target.value)}
                   placeholder="Any symptoms or concerns..."
-                  className="w-full h-24 px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-white/40 resize-none"
+                  className="w-full h-24 px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-500 resize-none"
                 />
               </div>
 
@@ -322,3 +322,6 @@ const PatientPrescriptionsPage = () => {
 }
 
 export default PatientPrescriptionsPage
+
+
+

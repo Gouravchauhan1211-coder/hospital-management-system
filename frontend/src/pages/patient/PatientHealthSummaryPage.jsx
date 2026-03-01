@@ -123,15 +123,15 @@ const PatientHealthSummaryPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 px-5 pt-8 pb-4" style={{ background: 'rgba(30,58,95,0.95)', backdropFilter: 'blur(10px)' }}>
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-white">Health Summary</h1>
-          <p className="text-sm text-white/60">Your complete health profile</p>
+          <h1 className="text-2xl font-bold text-gray-800">Health Summary</h1>
+          <p className="text-sm text-gray-600">Your complete health profile</p>
         </div>
       </header>
 
       <main className="px-5 pb-24">
         {/* Vitals Overview */}
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-red-400" />
             Vitals
           </h2>
@@ -140,33 +140,33 @@ const PatientHealthSummaryPage = () => {
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Heart className="w-4 h-4 text-red-400" />
-                <span className="text-xs text-white/60">Blood Pressure</span>
+                <span className="text-xs text-gray-600">Blood Pressure</span>
               </div>
-              <p className="text-2xl font-bold text-white">{healthData.vitals.bloodPressure}</p>
+              <p className="text-2xl font-bold text-gray-800">{healthData.vitals.bloodPressure}</p>
               <p className="text-xs text-green-400">Normal</p>
             </div>
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Activity className="w-4 h-4 text-pink-400" />
-                <span className="text-xs text-white/60">Heart Rate</span>
+                <span className="text-xs text-gray-600">Heart Rate</span>
               </div>
-              <p className="text-2xl font-bold text-white">{healthData.vitals.heartRate} <span className="text-sm font-normal">bpm</span></p>
+              <p className="text-2xl font-bold text-gray-800">{healthData.vitals.heartRate} <span className="text-sm font-normal">bpm</span></p>
               <p className="text-xs text-green-400">Normal</p>
             </div>
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <Thermometer className="w-4 h-4 text-orange-400" />
-                <span className="text-xs text-white/60">Temperature</span>
+                <span className="text-xs text-gray-600">Temperature</span>
               </div>
-              <p className="text-2xl font-bold text-white">{healthData.vitals.temperature}°F</p>
+              <p className="text-2xl font-bold text-gray-800">{healthData.vitals.temperature}°F</p>
               <p className="text-xs text-green-400">Normal</p>
             </div>
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <User className="w-4 h-4 text-blue-400" />
-                <span className="text-xs text-white/60">BMI</span>
+                <span className="text-xs text-gray-600">BMI</span>
               </div>
-              <p className="text-2xl font-bold text-white">{healthData.vitals.bmi}</p>
+              <p className="text-2xl font-bold text-gray-800">{healthData.vitals.bmi}</p>
               <p className="text-xs text-green-400">Healthy</p>
             </div>
           </div>
@@ -175,7 +175,7 @@ const PatientHealthSummaryPage = () => {
         {/* Allergies */}
         <section className="mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-400" />
               Allergies
             </h2>
@@ -193,13 +193,13 @@ const PatientHealthSummaryPage = () => {
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 text-red-300"
               >
                 <span>{allergy}</span>
-                <button onClick={() => removeAllergy(index)} className="hover:text-white">
+                <button onClick={() => removeAllergy(index)} className="hover:text-gray-800">
                   <AlertTriangle className="w-3 h-3" />
                 </button>
               </motion.div>
             ))}
             {healthData.allergies.length === 0 && (
-              <p className="text-white/50">No known allergies</p>
+              <p className="text-gray-800/50">No known allergies</p>
             )}
           </div>
         </section>
@@ -207,7 +207,7 @@ const PatientHealthSummaryPage = () => {
         {/* Medical Conditions */}
         <section className="mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-400" />
               Medical Conditions
             </h2>
@@ -227,20 +227,20 @@ const PatientHealthSummaryPage = () => {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                  <span className="text-white">{condition}</span>
+                  <span className="text-gray-800">{condition}</span>
                 </div>
                 <Badge variant="primary">History</Badge>
               </motion.div>
             ))}
             {healthData.conditions.length === 0 && (
-              <p className="text-white/50">No medical conditions recorded</p>
+              <p className="text-gray-800/50">No medical conditions recorded</p>
             )}
           </div>
         </section>
 
         {/* Immunizations */}
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Syringe className="w-5 h-5 text-green-400" />
             Immunizations
           </h2>
@@ -260,8 +260,8 @@ const PatientHealthSummaryPage = () => {
                     <Shield className="w-5 h-5 text-green-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white">{imm.name}</p>
-                    <p className="text-xs text-white/50">{format(new Date(imm.date), 'MMM d, yyyy')}</p>
+                    <p className="font-semibold text-gray-800">{imm.name}</p>
+                    <p className="text-xs text-gray-800/50">{format(new Date(imm.date), 'MMM d, yyyy')}</p>
                   </div>
                 </div>
                 <Badge variant="success">Completed</Badge>
@@ -272,7 +272,7 @@ const PatientHealthSummaryPage = () => {
 
         {/* Emergency Contact */}
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Phone className="w-5 h-5 text-purple-400" />
             Emergency Contact
           </h2>
@@ -283,9 +283,9 @@ const PatientHealthSummaryPage = () => {
                 <User className="w-6 h-6 text-purple-400" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-white">{healthData.emergencyContact.name}</p>
-                <p className="text-sm text-white/60">{healthData.emergencyContact.relationship}</p>
-                <p className="text-sm text-white/80 mt-2 flex items-center gap-2">
+                <p className="font-semibold text-gray-800">{healthData.emergencyContact.name}</p>
+                <p className="text-sm text-gray-600">{healthData.emergencyContact.relationship}</p>
+                <p className="text-sm text-gray-700 mt-2 flex items-center gap-2">
                   <Phone className="w-4 h-4" />
                   {healthData.emergencyContact.phone}
                 </p>
@@ -300,7 +300,7 @@ const PatientHealthSummaryPage = () => {
         {/* Care Team */}
         {careTeam.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Stethoscope className="w-5 h-5 text-primary" />
               My Care Team
             </h2>
@@ -320,8 +320,8 @@ const PatientHealthSummaryPage = () => {
                       <Stethoscope className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-semibold text-white">Dr. {doctor.name}</p>
-                      <p className="text-xs text-white/60">{doctor.specialization}</p>
+                      <p className="font-semibold text-gray-800">Dr. {doctor.name}</p>
+                      <p className="text-xs text-gray-600">{doctor.specialization}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -330,7 +330,7 @@ const PatientHealthSummaryPage = () => {
                         <MessageSquare className="w-4 h-4" />
                       </Button>
                     </Link>
-                    <ChevronRight className="w-5 h-5 text-white/40" />
+                    <ChevronRight className="w-5 h-5 text-gray-500" />
                   </div>
                 </motion.div>
               ))}
@@ -389,3 +389,6 @@ const PatientHealthSummaryPage = () => {
 }
 
 export default PatientHealthSummaryPage
+
+
+

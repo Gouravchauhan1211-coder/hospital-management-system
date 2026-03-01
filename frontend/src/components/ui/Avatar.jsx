@@ -30,14 +30,14 @@ const Avatar = ({
 
   // Generate a consistent color based on name
   const getColorClass = (name) => {
-    if (!name) return 'bg-primary-500'
+    if (!name) return 'bg-blue-500'
     const colors = [
-      'bg-primary-500',
-      'bg-accent-purple',
-      'bg-accent-pink',
-      'bg-accent-teal',
-      'bg-success',
-      'bg-info',
+      'bg-blue-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-teal-500',
+      'bg-green-500',
+      'bg-indigo-500',
     ]
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
@@ -49,7 +49,7 @@ const Avatar = ({
         src={src}
         alt={alt}
         className={clsx(
-          'rounded-full object-cover ring-2 ring-white/20',
+          'rounded-full object-cover',
           sizes[size],
           className
         )}
@@ -61,7 +61,7 @@ const Avatar = ({
     return (
       <div
         className={clsx(
-          'rounded-full flex items-center justify-center font-medium text-white ring-2 ring-white/20',
+          'rounded-full flex items-center justify-center font-medium text-gray-800',
           sizes[size],
           getColorClass(name),
           className
@@ -75,7 +75,7 @@ const Avatar = ({
   return (
     <div
       className={clsx(
-        'rounded-full flex items-center justify-center bg-white/10 text-white/60 ring-2 ring-white/20',
+        'rounded-full flex items-center justify-center bg-gray-200 text-gray-500',
         sizes[size],
         className
       )}
@@ -86,3 +86,5 @@ const Avatar = ({
 }
 
 export default Avatar
+
+

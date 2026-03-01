@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './store/authStore'
+import useThemeStore from './store/themeStore'
 
 // Layout
 import { DashboardLayout } from './components/layout'
 
 // Shared Components
 import { ProtectedRoute } from './components/shared'
+import ComingSoon from './components/shared/ComingSoon'
+
+// Feature Flags
+import { isFeatureEnabled } from './config/features'
 
 // Auth Pages
 import OnboardingPage from './pages/auth/OnboardingPage'
@@ -20,23 +25,23 @@ import PatientDashboard from './pages/patient/PatientDashboard'
 import PatientDoctorsPage from './pages/patient/PatientDoctorsPage'
 import PatientDoctorProfilePage from './pages/patient/PatientDoctorProfilePage'
 import PatientAppointmentsPage from './pages/patient/PatientAppointmentsPage'
-import PatientMessagesPage from './pages/patient/PatientMessagesPage'
 import PatientProfilePage from './pages/patient/PatientProfilePage'
 import PatientMedicalRecordsPage from './pages/patient/PatientMedicalRecordsPage'
 import PatientPrescriptionsPage from './pages/patient/PatientPrescriptionsPage'
 import PatientLabResultsPage from './pages/patient/PatientLabResultsPage'
 import PatientBillingPage from './pages/patient/PatientBillingPage'
 import PatientHealthSummaryPage from './pages/patient/PatientHealthSummaryPage'
+import PatientMessagesPage from './pages/patient/PatientMessagesPage'
 
 // Doctor Pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard'
-import DoctorMessagesPage from './pages/doctor/DoctorMessagesPage'
 import DoctorAppointmentsPage from './pages/doctor/DoctorAppointmentsPage'
 import DoctorAvailabilityPage from './pages/doctor/DoctorAvailabilityPage'
 import DoctorPatientsPage from './pages/doctor/DoctorPatientsPage'
 import DoctorProfilePage from './pages/doctor/DoctorProfilePage'
 import DoctorEarningsPage from './pages/doctor/DoctorEarningsPage'
 import DoctorStatisticsPage from './pages/doctor/DoctorStatisticsPage'
+import DoctorMessagesPage from './pages/doctor/DoctorMessagesPage'
 
 // Mediator Pages
 import MediatorDashboard from './pages/mediator/MediatorDashboard'
@@ -54,32 +59,36 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import WalkInManagementPage from './pages/admin/WalkInManagementPage'
 
 // Shared Pages
-import CallPage from './pages/shared/CallPage'
 import SettingsPage from './pages/shared/SettingsPage'
 import QueueDisplayBoardPage from './pages/shared/QueueDisplayBoardPage'
+import CallPage from './pages/shared/CallPage'
+
+// Simple Loading Component
+const LoadingScreen = () => (
+  <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+)
 
 function App() {
   const [isReady, setIsReady] = useState(false)
   const { initialize } = useAuthStore()
+  const { initTheme } = useThemeStore()
 
   useEffect(() => {
-    // Initialize session on app start
-    initialize()
-    const timer = setTimeout(() => {
+    const init = async () => {
+      initTheme()
+      await initialize()
       setIsReady(true)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [initialize])
+    }
+    init()
+  }, [initialize, initTheme])
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading MediCare...</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (
@@ -89,11 +98,9 @@ function App() {
         toastOptions={{
           duration: 4000,
           style: {
-            background: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(10px)',
+            background: '#1f2937',
             color: '#fff',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px',
+            borderRadius: '8px',
           },
           success: {
             iconTheme: {
@@ -109,7 +116,7 @@ function App() {
           },
         }}
       />
-      
+
       <Router>
         <Routes>
           {/* Public Routes */}
@@ -118,13 +125,13 @@ function App() {
           <Route path="/role-selection" element={<RoleSelectionPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          
-          {/* Public Queue Display - No auth required */}
+
+          {/* Public Queue Display */}
           <Route path="/queue-display" element={<QueueDisplayBoardPage />} />
           <Route path="/queue-display/branch/:branchId" element={<QueueDisplayBoardPage />} />
           <Route path="/queue-display/doctor/:doctorId" element={<QueueDisplayBoardPage />} />
 
-          {/* Patient Routes - Mobile Layout */}
+          {/* ========== PATIENT ROUTES ========== */}
           <Route
             path="/patient/dashboard"
             element={
@@ -157,11 +164,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Feature-gated patient routes */}
           <Route
             path="/patient/records"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientMedicalRecordsPage />
+                {isFeatureEnabled('medicalRecords') ? (
+                  <PatientMedicalRecordsPage />
+                ) : (
+                  <ComingSoon featureName="Medical Records" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -169,7 +181,11 @@ function App() {
             path="/patient/prescriptions"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientPrescriptionsPage />
+                {isFeatureEnabled('prescriptions') ? (
+                  <PatientPrescriptionsPage />
+                ) : (
+                  <ComingSoon featureName="Prescriptions" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -177,7 +193,11 @@ function App() {
             path="/patient/lab-results"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientLabResultsPage />
+                {isFeatureEnabled('labResults') ? (
+                  <PatientLabResultsPage />
+                ) : (
+                  <ComingSoon featureName="Lab Results" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -185,7 +205,11 @@ function App() {
             path="/patient/billing"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientBillingPage />
+                {isFeatureEnabled('billing') ? (
+                  <PatientBillingPage />
+                ) : (
+                  <ComingSoon featureName="Billing" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -193,7 +217,11 @@ function App() {
             path="/patient/health-summary"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientHealthSummaryPage />
+                {isFeatureEnabled('healthSummary') ? (
+                  <PatientHealthSummaryPage />
+                ) : (
+                  <ComingSoon featureName="Health Summary" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -201,7 +229,11 @@ function App() {
             path="/patient/messages"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientMessagesPage />
+                {isFeatureEnabled('messages') ? (
+                  <PatientMessagesPage />
+                ) : (
+                  <ComingSoon featureName="Messages" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -209,7 +241,11 @@ function App() {
             path="/patient/messages/:threadId"
             element={
               <ProtectedRoute allowedRoles={['patient']}>
-                <PatientMessagesPage />
+                {isFeatureEnabled('messages') ? (
+                  <PatientMessagesPage />
+                ) : (
+                  <ComingSoon featureName="Messages" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -230,7 +266,7 @@ function App() {
             }
           />
 
-          {/* Doctor Routes */}
+          {/* ========== DOCTOR ROUTES ========== */}
           <Route
             path="/doctor/dashboard"
             element={
@@ -264,14 +300,6 @@ function App() {
             }
           />
           <Route
-            path="/doctor/earnings"
-            element={
-              <ProtectedRoute allowedRoles={['doctor']}>
-                <DoctorEarningsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/doctor/profile"
             element={
               <ProtectedRoute allowedRoles={['doctor']}>
@@ -287,11 +315,40 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Feature-gated doctor routes */}
           <Route
             path="/doctor/messages"
             element={
               <ProtectedRoute allowedRoles={['doctor']}>
-                <DoctorMessagesPage />
+                {isFeatureEnabled('messages') ? (
+                  <DoctorMessagesPage />
+                ) : (
+                  <ComingSoon featureName="Messages" />
+                )}
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/messages/:threadId"
+            element={
+              <ProtectedRoute allowedRoles={['doctor']}>
+                {isFeatureEnabled('messages') ? (
+                  <DoctorMessagesPage />
+                ) : (
+                  <ComingSoon featureName="Messages" />
+                )}
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/earnings"
+            element={
+              <ProtectedRoute allowedRoles={['doctor']}>
+                {isFeatureEnabled('earnings') ? (
+                  <DoctorEarningsPage />
+                ) : (
+                  <ComingSoon featureName="Earnings" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -299,22 +356,30 @@ function App() {
             path="/doctor/statistics"
             element={
               <ProtectedRoute allowedRoles={['doctor']}>
-                <DoctorStatisticsPage />
+                {isFeatureEnabled('statistics') ? (
+                  <DoctorStatisticsPage />
+                ) : (
+                  <ComingSoon featureName="Statistics" />
+                )}
               </ProtectedRoute>
             }
           />
 
-          {/* Call Routes (accessible by both patient and doctor) */}
+          {/* Video Call Route */}
           <Route
             path="/call/:threadId"
             element={
               <ProtectedRoute allowedRoles={['patient', 'doctor']}>
-                <CallPage />
+                {isFeatureEnabled('videoCall') ? (
+                  <CallPage />
+                ) : (
+                  <ComingSoon featureName="Video Calls" />
+                )}
               </ProtectedRoute>
             }
           />
 
-          {/* Mediator Routes */}
+          {/* ========== MEDIATOR ROUTES ========== */}
           <Route
             path="/mediator/dashboard"
             element={
@@ -339,11 +404,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Feature-gated mediator routes */}
           <Route
             path="/mediator/departments"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorDepartmentsPage />
+                {isFeatureEnabled('departments') ? (
+                  <MediatorDepartmentsPage />
+                ) : (
+                  <ComingSoon featureName="Departments" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -367,7 +437,11 @@ function App() {
             path="/mediator/analytics"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorAnalyticsPage />
+                {isFeatureEnabled('analytics') ? (
+                  <MediatorAnalyticsPage />
+                ) : (
+                  <ComingSoon featureName="Analytics" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -375,7 +449,11 @@ function App() {
             path="/mediator/branches"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorBranchesPage />
+                {isFeatureEnabled('branches') ? (
+                  <MediatorBranchesPage />
+                ) : (
+                  <ComingSoon featureName="Branches" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -383,7 +461,11 @@ function App() {
             path="/mediator/doctor-verification"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorDoctorVerificationPage />
+                {isFeatureEnabled('doctorVerification') ? (
+                  <MediatorDoctorVerificationPage />
+                ) : (
+                  <ComingSoon featureName="Doctor Verification" />
+                )}
               </ProtectedRoute>
             }
           />
@@ -391,12 +473,12 @@ function App() {
             path="/mediator/settings"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorDashboard />
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Admin Routes - Redirect to Mediator Dashboard */}
+          {/* ========== ADMIN ROUTES (Alias for Mediator) ========== */}
           <Route
             path="/admin/dashboard"
             element={
@@ -441,20 +523,16 @@ function App() {
             path="/admin/analytics"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorAnalyticsPage />
+                {isFeatureEnabled('analytics') ? (
+                  <MediatorAnalyticsPage />
+                ) : (
+                  <ComingSoon featureName="Analytics" />
+                )}
               </ProtectedRoute>
             }
           />
           <Route
             path="/admin/settings"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mediator/settings"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
                 <SettingsPage />
@@ -471,3 +549,4 @@ function App() {
 }
 
 export default App
+

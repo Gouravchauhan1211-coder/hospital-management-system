@@ -320,3 +320,4 @@ const RecordList = ({ patientId, showUpload = false }) => {
 
 export default RecordList
 export { RecordCard }
+

@@ -103,19 +103,19 @@ const PatientLabResultsPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 px-5 pt-8 pb-4" style={{ background: 'rgba(30,58,95,0.95)', backdropFilter: 'blur(10px)' }}>
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-white">Lab Results</h1>
-          <p className="text-sm text-white/60">View your test reports</p>
+          <h1 className="text-2xl font-bold text-gray-800">Lab Results</h1>
+          <p className="text-sm text-gray-600">View your test reports</p>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             placeholder="Search test results..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-11 pl-10 pr-4 bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-white/40"
+            className="w-full h-11 pl-10 pr-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-500"
           />
         </div>
 
@@ -124,7 +124,7 @@ const PatientLabResultsPage = () => {
           <button
             onClick={() => setCategoryFilter('all')}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              categoryFilter === 'all' ? 'bg-primary text-white' : 'bg-white/10 text-white/70'
+              categoryFilter === 'all' ? 'bg-primary text-gray-800' : 'bg-gray-100 text-gray-800/70'
             }`}
           >
             All Tests
@@ -134,7 +134,7 @@ const PatientLabResultsPage = () => {
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                categoryFilter === cat.id ? 'bg-primary text-white' : 'bg-white/10 text-white/70'
+                categoryFilter === cat.id ? 'bg-primary text-gray-800' : 'bg-gray-100 text-gray-800/70'
               }`}
             >
               {cat.name}
@@ -147,7 +147,7 @@ const PatientLabResultsPage = () => {
         {/* Pending Results */}
         {pendingResults.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <TestTube className="w-5 h-5 text-yellow-400" />
               Pending Results
               <Badge variant="warning" className="ml-2">{pendingResults.length}</Badge>
@@ -170,8 +170,8 @@ const PatientLabResultsPage = () => {
                         <CategoryIcon className="w-6 h-6" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-white">{result.test_name}</h3>
-                        <p className="text-xs text-white/50">
+                        <h3 className="font-semibold text-gray-800">{result.test_name}</h3>
+                        <p className="text-xs text-gray-800/50">
                           {format(new Date(result.test_date), 'MMM d, yyyy')} • Dr. {result.prescribed_by}
                         </p>
                       </div>
@@ -186,7 +186,7 @@ const PatientLabResultsPage = () => {
 
         {/* Completed Results */}
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-green-400" />
             Completed Results
             <Badge variant="success" className="ml-2">{completedResults.length}</Badge>
@@ -207,7 +207,7 @@ const PatientLabResultsPage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="rounded-2xl p-5 border cursor-pointer hover:bg-white/5 transition-colors"
+                    className="rounded-2xl p-5 border cursor-pointer hover:bg-gray-50 transition-colors"
                     style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.1)' }}
                     onClick={() => {
                       setSelectedResult(result)
@@ -220,8 +220,8 @@ const PatientLabResultsPage = () => {
                           <CategoryIcon className="w-7 h-7" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-white text-lg">{result.test_name}</h3>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-white/60">
+                          <h3 className="font-bold text-gray-800 text-lg">{result.test_name}</h3>
+                          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
                               {format(new Date(result.test_date), 'MMM d, yyyy')}
@@ -237,16 +237,16 @@ const PatientLabResultsPage = () => {
                         <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDownload(result) }}>
                           <Download className="w-4 h-4" />
                         </Button>
-                        <ChevronRight className="w-5 h-5 text-white/40" />
+                        <ChevronRight className="w-5 h-5 text-gray-500" />
                       </div>
                     </div>
                     
                     {result.results && (
-                      <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-4">
+                      <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-3 gap-4">
                         {Object.entries(result.results).slice(0, 3).map(([key, value]) => (
                           <div key={key} className="text-center">
-                            <p className="text-xs text-white/50 uppercase">{key}</p>
-                            <p className="font-bold text-white">{value}</p>
+                            <p className="text-xs text-gray-800/50 uppercase">{key}</p>
+                            <p className="font-bold text-gray-800">{value}</p>
                           </div>
                         ))}
                       </div>
@@ -274,24 +274,24 @@ const PatientLabResultsPage = () => {
       >
         {selectedResult && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
               <div>
-                <p className="text-sm text-white/60">Test Date</p>
-                <p className="font-semibold text-white">{format(new Date(selectedResult.test_date), 'MMMM d, yyyy')}</p>
+                <p className="text-sm text-gray-600">Test Date</p>
+                <p className="font-semibold text-gray-800">{format(new Date(selectedResult.test_date), 'MMMM d, yyyy')}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-white/60">Prescribed By</p>
-                <p className="font-semibold text-white">Dr. {selectedResult.prescribed_by}</p>
+                <p className="text-sm text-gray-600">Prescribed By</p>
+                <p className="font-semibold text-gray-800">Dr. {selectedResult.prescribed_by}</p>
               </div>
             </div>
 
             {selectedResult.results && (
               <div className="space-y-3">
-                <h4 className="font-semibold text-white">Test Results</h4>
+                <h4 className="font-semibold text-gray-800">Test Results</h4>
                 {Object.entries(selectedResult.results).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                    <span className="text-white/70 capitalize">{key.replace('_', ' ')}</span>
-                    <span className="font-bold text-white">{value}</span>
+                  <div key={key} className="flex justify-between items-center p-3 rounded-lg bg-gray-50">
+                    <span className="text-gray-800/70 capitalize">{key.replace('_', ' ')}</span>
+                    <span className="font-bold text-gray-800">{value}</span>
                   </div>
                 ))}
               </div>
@@ -317,3 +317,6 @@ const PatientLabResultsPage = () => {
 }
 
 export default PatientLabResultsPage
+
+
+

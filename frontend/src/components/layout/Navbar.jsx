@@ -1,23 +1,60 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Menu, 
+import {
   Search,
   ChevronDown,
   LogOut,
   User,
-  Settings
+  Settings,
+  Bell
 } from 'lucide-react'
-import { clsx } from 'clsx'
 import useAuthStore from '../../store/authStore'
 import Avatar from '../ui/Avatar'
-import NotificationDropdown from '../notifications/NotificationDropdown'
+import { supabase } from '../../services/supabase'
+import NotificationDrawer from '../shared/NotificationDrawer'
 
-const Navbar = ({ onMenuClick }) => {
+const Navbar = () => {
   const navigate = useNavigate()
   const [showDropdown, setShowDropdown] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
   const { user, logout } = useAuthStore()
+
+  useEffect(() => {
+    if (!user?.id) return
+
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (data) setNotifications(data)
+    }
+
+    fetchNotifications()
+
+    // Subscribe to new notifications
+    const channel = supabase
+      .channel(`user-notifications-${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        setNotifications(prev => [payload.new, ...prev].slice(0, 10))
+        toast.success(payload.new.title || 'New notification')
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
 
   const handleLogout = async () => {
     try {
@@ -32,66 +69,61 @@ const Navbar = ({ onMenuClick }) => {
   const userName = user?.fullName || user?.email?.split('@')[0] || 'User'
 
   return (
-    <header className="sticky top-0 z-30 bg-black/10 backdrop-blur-xl border-b border-white/10">
-      <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-        {/* Left side */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onMenuClick}
-            className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 lg:hidden"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+    <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 transition-colors">
+      <div className="flex items-center justify-between h-14 px-4 max-w-md mx-auto">
 
-          {/* Search */}
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10">
-            <Search className="w-4 h-4 text-white/40" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="bg-transparent border-none outline-none text-white placeholder-white/40 w-48"
-            />
+        {/* Left icon / Title placeholder */}
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none">
+            <span className="text-white font-bold pb-0.5">+</span>
           </div>
+          <span className="font-bold text-gray-800 dark:text-white text-sm tracking-tight transition-colors">Medicare</span>
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2">
-          {/* Notifications - Using the new component */}
-          <NotificationDropdown />
+        {/* Right side Actions */}
+        <div className="flex items-center gap-3">
+          {/* Notification Bell */}
+          <button
+            onClick={() => setIsNotificationsOpen(true)}
+            className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-700 dark:text-slate-300"
+          >
+            <Bell className="w-5 h-5" />
+            {notifications.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+            )}
+          </button>
 
-          {/* Profile dropdown */}
+          {/* Profile Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/10"
+              className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <Avatar 
+              <Avatar
                 name={userName}
                 src={user?.avatarUrl}
                 size="sm"
+                className="ring-2 ring-white dark:ring-slate-900"
               />
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-white">{userName}</p>
-                <p className="text-xs text-white/50 capitalize">{userRole}</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-white/40" />
+              <ChevronDown className="w-4 h-4 text-gray-400" />
             </button>
 
             <AnimatePresence>
               {showDropdown && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute right-0 mt-2 w-56 bg-black/30 backdrop-blur-xl border border-white/20 rounded-2xl shadow-glass-lg overflow-hidden"
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-3 w-48 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 origin-top-right transition-colors"
                 >
-                  <div className="p-2">
+                  <div className="p-2 space-y-1">
                     <button
                       onClick={() => {
                         setShowDropdown(false)
                         navigate(`/${userRole}/profile`)
                       }}
-                      className="flex items-center gap-3 w-full p-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                      className="flex items-center gap-3 w-full p-2.5 rounded-xl text-gray-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 transition-colors text-sm font-medium"
                     >
                       <User className="w-4 h-4" />
                       <span>My Profile</span>
@@ -101,19 +133,19 @@ const Navbar = ({ onMenuClick }) => {
                         setShowDropdown(false)
                         navigate(`/${userRole}/settings`)
                       }}
-                      className="flex items-center gap-3 w-full p-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                      className="flex items-center gap-3 w-full p-2.5 rounded-xl text-gray-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 transition-colors text-sm font-medium"
                     >
                       <Settings className="w-4 h-4" />
                       <span>Settings</span>
                     </button>
                   </div>
-                  <div className="p-2 border-t border-white/10">
+                  <div className="p-2 border-t border-gray-100 dark:border-slate-800">
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-3 w-full p-3 rounded-xl text-error hover:bg-error/10 transition-colors"
+                      className="flex items-center gap-3 w-full p-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-sm font-medium"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Logout</span>
+                      <span>Log Out</span>
                     </button>
                   </div>
                 </motion.div>
@@ -122,8 +154,16 @@ const Navbar = ({ onMenuClick }) => {
           </div>
         </div>
       </div>
+
+      <NotificationDrawer
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        notifications={notifications}
+      />
     </header>
   )
 }
 
 export default Navbar
+
+

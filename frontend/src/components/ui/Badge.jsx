@@ -7,7 +7,7 @@ const Badge = ({
   className 
 }) => {
   const variants = {
-    default: 'bg-white/20 text-white',
+    default: 'bg-white/20 text-gray-800',
     primary: 'bg-primary-500/20 text-primary-300',
     success: 'bg-success/20 text-success',
     warning: 'bg-warning/20 text-warning',
@@ -39,3 +39,5 @@ const Badge = ({
 }
 
 export default Badge
+
+

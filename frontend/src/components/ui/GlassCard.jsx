@@ -10,9 +10,9 @@ const GlassCard = ({
   ...props 
 }) => {
   const baseClasses = clsx(
-    'bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-glass',
+    'bg-white rounded-xl shadow-sm border border-gray-100',
     'transition-all duration-300 ease-out',
-    hover && 'hover:bg-white/15 hover:shadow-glass-lg hover:-translate-y-0.5',
+    hover && 'hover:shadow-md hover:-translate-y-0.5',
     className
   )
 
@@ -38,3 +38,5 @@ const GlassCard = ({
 }
 
 export default GlassCard
+
+

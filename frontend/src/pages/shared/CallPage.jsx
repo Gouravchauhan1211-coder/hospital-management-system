@@ -359,7 +359,7 @@ const CallPage = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="text-2xl font-semibold text-white mb-2"
+            className="text-2xl font-semibold text-gray-800 mb-2"
           >
             {remoteUser?.name || 'Connecting...'}
           </motion.h2>
@@ -368,7 +368,7 @@ const CallPage = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-white/60"
+            className="text-gray-600"
           >
             {callStatus === 'connecting' && 'Calling...'}
             {callStatus === 'ringing' && 'Ringing...'}
@@ -382,8 +382,8 @@ const CallPage = () => {
       {isVideo && (
         <div className="absolute top-4 left-4 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2">
-            <p className="text-white font-medium">{remoteUser?.name || 'Connecting...'}</p>
-            <p className="text-white/60 text-sm">
+            <p className="text-gray-800 font-medium">{remoteUser?.name || 'Connecting...'}</p>
+            <p className="text-gray-600 text-sm">
               {callStatus === 'connecting' && 'Calling...'}
               {callStatus === 'ringing' && 'Ringing...'}
               {callStatus === 'connected' && formatDuration(callDuration)}
@@ -400,10 +400,10 @@ const CallPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur-sm rounded-2xl px-6 py-4 text-white text-center z-20"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur-sm rounded-2xl px-6 py-4 text-gray-800 text-center z-20"
           >
             <p className="font-medium mb-2">Call Error</p>
-            <p className="text-sm text-white/80">{errorMessage}</p>
+            <p className="text-sm text-gray-700">{errorMessage}</p>
             <Button
               variant="ghost"
               onClick={() => navigate(-1)}
@@ -433,9 +433,9 @@ const CallPage = () => {
             }`}
           >
             {isMuted ? (
-              <MicOff className="w-6 h-6 text-white" />
+              <MicOff className="w-6 h-6 text-gray-800" />
             ) : (
-              <Mic className="w-6 h-6 text-white" />
+              <Mic className="w-6 h-6 text-gray-800" />
             )}
           </motion.button>
           
@@ -450,9 +450,9 @@ const CallPage = () => {
               }`}
             >
               {isVideoOff ? (
-                <VideoOff className="w-6 h-6 text-white" />
+                <VideoOff className="w-6 h-6 text-gray-800" />
               ) : (
-                <Video className="w-6 h-6 text-white" />
+                <Video className="w-6 h-6 text-gray-800" />
               )}
             </motion.button>
           )}
@@ -464,7 +464,7 @@ const CallPage = () => {
             onClick={endCall}
             className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center"
           >
-            <PhoneOff className="w-7 h-7 text-white" />
+            <PhoneOff className="w-7 h-7 text-gray-800" />
           </motion.button>
           
           {/* Speaker Button */}
@@ -477,9 +477,9 @@ const CallPage = () => {
             }`}
           >
             {isSpeakerOn ? (
-              <Volume2 className="w-6 h-6 text-white" />
+              <Volume2 className="w-6 h-6 text-gray-800" />
             ) : (
-              <VolumeX className="w-6 h-6 text-white" />
+              <VolumeX className="w-6 h-6 text-gray-800" />
             )}
           </motion.button>
           
@@ -490,7 +490,7 @@ const CallPage = () => {
             onClick={() => navigate(-1)}
             className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
           >
-            <MessageSquare className="w-6 h-6 text-white" />
+            <MessageSquare className="w-6 h-6 text-gray-800" />
           </motion.button>
         </div>
       </motion.div>
@@ -499,3 +499,5 @@ const CallPage = () => {
 }
 
 export default CallPage
+
+

@@ -261,3 +261,4 @@ const RecordUpload = ({ patientId, doctorId, doctorName, onSuccess, onCancel }) 
 }
 
 export default RecordUpload
+

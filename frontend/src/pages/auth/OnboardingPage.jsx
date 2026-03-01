@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Stethoscope, Calendar, Shield, Heart } from 'lucide-react'
 import Button from '../../components/ui/Button'
 
@@ -9,25 +8,25 @@ const slides = [
     icon: Stethoscope,
     title: 'Find Expert Doctors',
     description: 'Connect with verified healthcare professionals across various specializations.',
-    color: 'from-primary-500 to-primary-600',
+    color: 'bg-blue-500',
   },
   {
     icon: Calendar,
     title: 'Easy Appointments',
     description: 'Book appointments with just a few clicks. Manage your healthcare schedule effortlessly.',
-    color: 'from-accent-purple to-accent-pink',
+    color: 'bg-green-500',
   },
   {
     icon: Shield,
     title: 'Secure & Private',
     description: 'Your medical records and personal information are protected with enterprise-grade security.',
-    color: 'from-accent-teal to-success',
+    color: 'bg-teal-500',
   },
   {
     icon: Heart,
     title: 'Your Health, Our Priority',
-    description: 'Get personalized healthcare experience with MediCare. Start your journey to better health today.',
-    color: 'from-accent-pink to-error',
+    description: 'Get personalized healthcare experience with MediCare.',
+    color: 'bg-red-500',
   },
 ]
 
@@ -53,86 +52,31 @@ const OnboardingPage = () => {
   const Icon = slide.icon
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      {/* Animated background blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -top-40 -left-40 w-80 h-80 bg-primary-500/30 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, -100, 0],
-            y: [0, 100, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute top-1/2 -right-40 w-96 h-96 bg-accent-purple/30 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, 50, 0],
-            y: [0, -100, 0],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -bottom-40 left-1/3 w-72 h-72 bg-accent-pink/30 rounded-full blur-3xl"
-        />
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-6">
+      {/* Logo */}
+      <div className="flex items-center gap-3 mb-12">
+        <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">
+          <Stethoscope className="w-6 h-6 text-gray-800" />
+        </div>
+        <span className="text-2xl font-bold text-gray-800">MediCare</span>
       </div>
 
-      {/* Logo */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 mb-12"
-      >
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-accent-purple flex items-center justify-center">
-          <Stethoscope className="w-6 h-6 text-white" />
-        </div>
-        <span className="text-2xl font-bold text-white font-display">MediCare</span>
-      </motion.div>
-
       {/* Slide content */}
-      <div className="relative w-full max-w-md">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-            className="text-center"
-          >
-            {/* Icon */}
-            <div className={`w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br ${slide.color} flex items-center justify-center shadow-glass-lg`}>
-              <Icon className="w-12 h-12 text-white" />
-            </div>
+      <div className="w-full max-w-md">
+        {/* Icon */}
+        <div className={`w-24 h-24 mx-auto mb-8 rounded-2xl ${slide.color} flex items-center justify-center shadow-lg`}>
+          <Icon className="w-12 h-12 text-gray-800" />
+        </div>
 
-            {/* Title */}
-            <h1 className="text-3xl font-bold text-white mb-4 font-display">
-              {slide.title}
-            </h1>
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+          {slide.title}
+        </h1>
 
-            {/* Description */}
-            <p className="text-white/70 text-lg mb-8">
-              {slide.description}
-            </p>
-          </motion.div>
-        </AnimatePresence>
+        {/* Description */}
+        <p className="text-gray-600 text-center mb-8">
+          {slide.description}
+        </p>
 
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-8">
@@ -140,10 +84,10 @@ const OnboardingPage = () => {
             <button
               key={index}
               onClick={() => setCurrentSlide(index)}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              className={`h-2 rounded-full transition-all duration-300 ${
                 index === currentSlide 
-                  ? 'w-8 bg-white' 
-                  : 'bg-white/30 hover:bg-white/50'
+                  ? 'w-8 bg-blue-600' 
+                  : 'w-2 bg-gray-300'
               }`}
             />
           ))}
@@ -152,18 +96,14 @@ const OnboardingPage = () => {
         {/* Navigation buttons */}
         <div className="flex justify-between gap-4">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={prevSlide}
-            disabled={currentSlide === 0}
             className={`${currentSlide === 0 ? 'invisible' : ''}`}
           >
             <ChevronLeft className="w-5 h-5" />
             Back
           </Button>
-          <Button
-            variant="primary"
-            onClick={nextSlide}
-          >
+          <Button variant="primary" onClick={nextSlide}>
             {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
             <ChevronRight className="w-5 h-5" />
           </Button>
@@ -174,7 +114,7 @@ const OnboardingPage = () => {
       {currentSlide < slides.length - 1 && (
         <button
           onClick={() => navigate('/role-selection')}
-          className="mt-8 text-white/50 hover:text-white transition-colors"
+          className="mt-8 text-gray-500 hover:text-gray-700"
         >
           Skip
         </button>
@@ -184,3 +124,6 @@ const OnboardingPage = () => {
 }
 
 export default OnboardingPage
+
+
+

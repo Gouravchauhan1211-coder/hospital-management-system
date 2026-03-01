@@ -170,3 +170,4 @@ const ToggleSwitch = ({ label, description, checked, onChange }) => (
 )
 
 export default NotificationPreferences
+

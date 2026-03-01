@@ -273,3 +273,5 @@ const ReviewList = ({ doctorId, patientId, showWriteReview = false }) => {
 
 export default ReviewList
 export { ReviewCard }
+
+

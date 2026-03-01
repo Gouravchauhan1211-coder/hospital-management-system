@@ -127,16 +127,16 @@ const PaymentModal = ({
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white">Payment</h2>
-                <p className="text-sm text-white/60">Complete your booking</p>
+                <h2 className="text-xl font-bold text-gray-800">Payment</h2>
+                <p className="text-sm text-gray-600">Complete your booking</p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <X className="w-5 h-5 text-white/60" />
+                <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
 
@@ -151,31 +151,31 @@ const PaymentModal = ({
                   <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="w-10 h-10 text-green-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Payment Successful!</h3>
-                  <p className="text-white/60">Your appointment has been confirmed</p>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Payment Successful!</h3>
+                  <p className="text-gray-600">Your appointment has been confirmed</p>
                 </motion.div>
               ) : (
                 <>
                   {/* Order Summary */}
-                  <div className="bg-white/5 rounded-xl p-4 mb-6">
+                  <div className="bg-gray-50 rounded-xl p-4 mb-6">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
                         <CreditCard className="w-5 h-5 text-primary-400" />
                       </div>
                       <div>
-                        <p className="font-medium text-white">{doctorName}</p>
-                        <p className="text-sm text-white/60">{appointmentDetails}</p>
+                        <p className="font-medium text-gray-800">{doctorName}</p>
+                        <p className="text-sm text-gray-600">{appointmentDetails}</p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                      <span className="text-white/60">Total Amount</span>
-                      <span className="text-2xl font-bold text-white">${amount}</span>
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                      <span className="text-gray-600">Total Amount</span>
+                      <span className="text-2xl font-bold text-gray-800">${amount}</span>
                     </div>
                   </div>
 
                   {/* Payment Methods */}
                   <div className="mb-6">
-                    <p className="text-sm text-white/60 mb-3">Select Payment Method</p>
+                    <p className="text-sm text-gray-600 mb-3">Select Payment Method</p>
                     <div className="grid grid-cols-2 gap-3">
                       {paymentMethods.map(method => (
                         <button
@@ -184,14 +184,14 @@ const PaymentModal = ({
                           className={`p-3 rounded-xl border transition-all flex items-center gap-2 ${
                             paymentMethod === method.id
                               ? 'border-primary-500 bg-primary-500/10'
-                              : 'border-white/10 hover:border-white/20'
+                              : 'border-gray-200 hover:border-white/20'
                           }`}
                         >
                           <method.icon className={`w-5 h-5 ${
-                            paymentMethod === method.id ? 'text-primary-400' : 'text-white/60'
+                            paymentMethod === method.id ? 'text-primary-400' : 'text-gray-600'
                           }`} />
                           <span className={`text-sm ${
-                            paymentMethod === method.id ? 'text-white' : 'text-white/60'
+                            paymentMethod === method.id ? 'text-gray-800' : 'text-gray-600'
                           }`}>
                             {method.label}
                           </span>
@@ -259,7 +259,7 @@ const PaymentModal = ({
                       animate={{ opacity: 1, y: 0 }}
                       className="mb-6"
                     >
-                      <select className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary-500">
+                      <select className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-primary-500">
                         <option value="">Select Bank</option>
                         <option value="sbi">State Bank of India</option>
                         <option value="hdfc">HDFC Bank</option>
@@ -281,9 +281,9 @@ const PaymentModal = ({
                         {['Paytm', 'PhonePe', 'Amazon Pay'].map(wallet => (
                           <button
                             key={wallet}
-                            className="p-3 rounded-xl border border-white/10 hover:border-primary-500 transition-colors"
+                            className="p-3 rounded-xl border border-gray-200 hover:border-primary-500 transition-colors"
                           >
-                            <span className="text-sm text-white/80">{wallet}</span>
+                            <span className="text-sm text-gray-700">{wallet}</span>
                           </button>
                         ))}
                       </div>
@@ -291,7 +291,7 @@ const PaymentModal = ({
                   )}
 
                   {/* Security Note */}
-                  <div className="flex items-center gap-2 text-sm text-white/40 mb-6">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
                     <Lock className="w-4 h-4" />
                     <span>Your payment is secured with 256-bit encryption</span>
                   </div>
@@ -323,3 +323,4 @@ const PaymentModal = ({
 }
 
 export default PaymentModal
+

@@ -52,52 +52,62 @@ const useAuthStore = create((set, get) => ({
       if (error) throw error
 
       if (data.user) {
-        // Get user profile to determine role - check all three tables
-        let profile = null
+        // Get user profile to determine role - check ALL tables
         let role = 'patient'
-        
-        // Try patients table first
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-        
-        if (patientData) {
-          profile = patientData
-          role = 'patient'
-        } else {
-          // Try doctors table
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('*')
+
+        // Try profiles table first (source of truth for role)
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role, full_name, avatar_url')
             .eq('id', data.user.id)
             .single()
-          
-          if (doctorData) {
-            profile = doctorData
-            role = 'doctor'
-          } else {
-            // Try mediators table
-            const { data: mediatorData } = await supabase
-              .from('mediators')
-              .select('*')
+
+          console.log('Profile data:', profileData)
+
+          if (profileData?.role) {
+            role = profileData.role
+          } else if (!profileData) {
+            // Profile doesn't exist, check role-specific tables
+            // Try doctors table
+            const { data: doctorData } = await supabase
+              .from('doctors')
+              .select('full_name')
               .eq('id', data.user.id)
               .single()
-            
-            if (mediatorData) {
-              profile = mediatorData
-              role = 'mediator'
+
+            console.log('Doctor data:', doctorData)
+
+            if (doctorData) {
+              role = 'doctor'
+            } else {
+              // Try mediators table
+              const { data: mediatorData } = await supabase
+                .from('mediators')
+                .select('full_name')
+                .eq('id', data.user.id)
+                .single()
+
+              console.log('Mediator data:', mediatorData)
+
+              if (mediatorData) {
+                role = 'mediator'
+              }
             }
           }
+        } catch (e) {
+          console.error('Profile lookup error:', e)
+          // Continue with default role
         }
+
+        console.log('Detected role:', role)
 
         const userData = {
           id: data.user.id,
           email: data.user.email,
           role: role,
-          fullName: profile?.full_name || data.user.email?.split('@')[0],
-          avatarUrl: profile?.avatar_url || null,
+          fullName: email?.split('@')[0],
+          avatarUrl: null,
         }
 
         // Save to localStorage
@@ -130,14 +140,21 @@ const useAuthStore = create((set, get) => ({
       if (error) throw error
 
       if (data.user) {
-        // Create profile in the correct table based on role
-        const tableName = role === 'doctor' ? 'doctors' : role === 'mediator' ? 'mediators' : 'patients'
-        
-        await supabase.from(tableName).insert({
+        // Create profile in profiles table first (source of truth for role)
+        await supabase.from('profiles').insert({
           id: data.user.id,
           email: data.user.email,
           full_name: fullName,
           role: role,
+        })
+
+        // Create profile in the role-specific table
+        const tableName = role === 'doctor' ? 'doctors' : role === 'mediator' ? 'mediators' : 'patients'
+
+        await supabase.from(tableName).insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: fullName,
         })
 
         const userData = {
@@ -208,37 +225,51 @@ const useAuthStore = create((set, get) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
+        // Check the profiles table first (source of truth for role)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profileData) {
+          const role = profileData.role || 'patient'
+          set({ user: { ...profileData, role: role }, role: role })
+          return
+        }
+
+        // Fallback: check role-specific tables
         // Check patients table
         const { data: patientData } = await supabase
           .from('patients')
           .select('*')
           .eq('id', session.user.id)
           .single()
-        
+
         if (patientData) {
           set({ user: { ...patientData, role: 'patient' }, role: 'patient' })
           return
         }
-        
+
         // Check doctors table
         const { data: doctorData } = await supabase
           .from('doctors')
           .select('*')
           .eq('id', session.user.id)
           .single()
-        
+
         if (doctorData) {
           set({ user: { ...doctorData, role: 'doctor' }, role: 'doctor' })
           return
         }
-        
+
         // Check mediators table
         const { data: mediatorData } = await supabase
           .from('mediators')
           .select('*')
           .eq('id', session.user.id)
           .single()
-        
+
         if (mediatorData) {
           set({ user: { ...mediatorData, role: 'mediator' }, role: 'mediator' })
           return
@@ -251,6 +282,70 @@ const useAuthStore = create((set, get) => ({
       console.error('Init error:', error)
       localStorage.removeItem('hospital_user')
       set({ user: null, role: null })
+    }
+  },
+
+  // Update profile function
+  updateProfile: async (profileData) => {
+    const { user } = get()
+    if (!user?.id) return { success: false, error: 'User not logged in' }
+
+    try {
+      // Update role-specific table (patients, doctors, etc.)
+      const tableName = user.role === 'doctor' ? 'doctors' :
+        user.role === 'mediator' ? 'mediators' : 'patients'
+
+      const updatePayload = {
+        full_name: profileData.fullName,
+        phone: profileData.phone,
+        address: profileData.address,
+        date_of_birth: profileData.dateOfBirth,
+        blood_group: profileData.bloodGroup,
+        emergency_contact: profileData.emergencyContact,
+        allergies: profileData.allergies,
+      }
+
+      // Filter out undefined/null values
+      const cleanUpdate = Object.fromEntries(
+        Object.entries(updatePayload).filter(([_, v]) => v !== undefined)
+      )
+
+      // 1. Update general profiles table
+      await supabase
+        .from('profiles')
+        .update({
+          full_name: profileData.fullName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+
+      // 2. Update role-specific table
+      const { data, error } = await supabase
+        .from(tableName)
+        .update(cleanUpdate)
+        .eq('id', user.id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Update local state and localStorage
+      const updatedUser = {
+        ...user,
+        ...data,
+        fullName: data.full_name,
+        dateOfBirth: data.date_of_birth,
+        bloodGroup: data.blood_group,
+        emergencyContact: data.emergency_contact
+      }
+
+      localStorage.setItem('hospital_user', JSON.stringify(updatedUser))
+      set({ user: updatedUser })
+
+      return { success: true, user: updatedUser }
+    } catch (error) {
+      console.error('Update profile error:', error)
+      return { success: false, error: error.message }
     }
   },
 }))

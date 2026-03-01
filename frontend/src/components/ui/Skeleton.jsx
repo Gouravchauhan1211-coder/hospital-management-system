@@ -29,7 +29,7 @@ const Skeleton = ({
   return (
     <div
       className={clsx(
-        'bg-white/10 animate-pulse',
+        'bg-gray-100 animate-pulse',
         variants[variant],
         roundeds[rounded],
         className
@@ -41,7 +41,7 @@ const Skeleton = ({
 
 // Skeleton presets for common use cases
 export const CardSkeleton = () => (
-  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 space-y-4">
+  <div className="bg-gray-100 backdrop-blur-xl border border-white/20 rounded-2xl p-6 space-y-4">
     <div className="flex items-center gap-4">
       <Skeleton variant="avatar" />
       <div className="flex-1 space-y-2">
@@ -59,14 +59,14 @@ export const CardSkeleton = () => (
 
 export const TableSkeleton = ({ rows = 5 }) => (
   <div className="space-y-3">
-    <div className="flex gap-4 p-4 bg-white/5 rounded-xl">
+    <div className="flex gap-4 p-4 bg-gray-50 rounded-xl">
       <Skeleton className="w-1/4 h-4" />
       <Skeleton className="w-1/4 h-4" />
       <Skeleton className="w-1/4 h-4" />
       <Skeleton className="w-1/4 h-4" />
     </div>
     {Array.from({ length: rows }).map((_, i) => (
-      <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-xl">
+      <div key={i} className="flex gap-4 p-4 bg-gray-50 rounded-xl">
         <Skeleton className="w-1/4 h-4" />
         <Skeleton className="w-1/4 h-4" />
         <Skeleton className="w-1/4 h-4" />
@@ -77,7 +77,7 @@ export const TableSkeleton = ({ rows = 5 }) => (
 )
 
 export const StatCardSkeleton = () => (
-  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+  <div className="bg-gray-100 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
     <Skeleton className="w-12 h-12 rounded-xl mb-4" />
     <Skeleton className="w-24 h-8 mb-2" />
     <Skeleton className="w-32 h-4" />
@@ -85,3 +85,5 @@ export const StatCardSkeleton = () => (
 )
 
 export default Skeleton
+
+

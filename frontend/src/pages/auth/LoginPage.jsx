@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +8,6 @@ import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
-import GlassCard from '../../components/ui/GlassCard'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -31,7 +29,6 @@ const LoginPage = () => {
   })
 
   const onSubmit = async (data) => {
-    // Validate that email and password are provided
     if (!data.email || !data.password) {
       toast.error('Please enter both email and password')
       return
@@ -51,15 +48,18 @@ const LoginPage = () => {
       setIsLoading(true)
       const result = await login(data.email, data.password)
       
+      console.log('Login result:', result)
+      
       if (result.success) {
         toast.success('Welcome back!')
-        // Redirect based on role from result
         const userRole = result.user?.role || 'patient'
+        console.log('User role:', userRole)
         const dashboardPath = userRole === 'doctor' 
           ? '/doctor/dashboard' 
           : userRole === 'mediator' 
             ? '/mediator/dashboard' 
             : '/patient/dashboard'
+        console.log('Redirecting to:', dashboardPath)
         navigate(dashboardPath)
       } else {
         toast.error(result.error || 'Failed to login. Please check your credentials.')
@@ -73,65 +73,21 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      {/* Animated background blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -top-40 -left-40 w-80 h-80 bg-primary-500/30 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, -100, 0],
-            y: [0, 100, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute top-1/2 -right-40 w-96 h-96 bg-accent-purple/30 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, 50, 0],
-            y: [0, -100, 0],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -bottom-40 left-1/3 w-72 h-72 bg-accent-pink/30 rounded-full blur-3xl"
-        />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-accent-purple flex items-center justify-center">
-            <Stethoscope className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">
+            <Stethoscope className="w-6 h-6 text-gray-800" />
           </div>
-          <span className="text-2xl font-bold text-white font-display">MediCare</span>
+          <span className="text-2xl font-bold text-gray-800">MediCare</span>
         </div>
 
         {/* Login Card */}
-        <GlassCard className="p-8">
+        <div className="bg-white rounded-2xl shadow-sm p-6">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-white/60">Sign in to continue to your dashboard</p>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back</h1>
+            <p className="text-gray-500">Sign in to continue to your dashboard</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -156,18 +112,14 @@ const LoginPage = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-white/40 hover:text-white/60"
+                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-white/70">
-                <input type="checkbox" className="rounded border-white/20 bg-white/10" />
-                Remember me
-              </label>
-              <Link to="/forgot-password" className="text-primary-400 hover:text-primary-300">
+            <div className="flex items-center justify-end text-sm">
+              <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700">
                 Forgot password?
               </Link>
             </div>
@@ -183,24 +135,27 @@ const LoginPage = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-white/60">
+            <p className="text-gray-500">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary-400 hover:text-primary-300 font-medium">
+              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
                 Sign up
               </Link>
             </p>
           </div>
-        </GlassCard>
+        </div>
 
         {/* Back link */}
         <div className="text-center mt-6">
-          <Link to="/role-selection" className="text-white/50 hover:text-white transition-colors">
+          <Link to="/role-selection" className="text-gray-500 hover:text-gray-700">
             ← Choose a different role
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
 
 export default LoginPage
+
+
+

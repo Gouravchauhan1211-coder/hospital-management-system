@@ -148,26 +148,26 @@ const PatientBillingPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 px-5 pt-8 pb-4" style={{ background: 'rgba(30,58,95,0.95)', backdropFilter: 'blur(10px)' }}>
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-white">Billing & Payments</h1>
-          <p className="text-sm text-white/60">Manage your bills and payments</p>
+          <h1 className="text-2xl font-bold text-gray-800">Billing & Payments</h1>
+          <p className="text-sm text-gray-600">Manage your bills and payments</p>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3">
           <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <DollarSign className="w-5 h-5 text-yellow-400 mb-1" />
-            <p className="text-xs text-white/60">Pending</p>
-            <p className="font-bold text-white">₹{totalPending}</p>
+            <p className="text-xs text-gray-600">Pending</p>
+            <p className="font-bold text-gray-800">₹{totalPending}</p>
           </div>
           <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <Clock className="w-5 h-5 text-red-400 mb-1" />
-            <p className="text-xs text-white/60">Overdue</p>
-            <p className="font-bold text-white">₹{totalOverdue}</p>
+            <p className="text-xs text-gray-600">Overdue</p>
+            <p className="font-bold text-gray-800">₹{totalOverdue}</p>
           </div>
           <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <CheckCircle className="w-5 h-5 text-green-400 mb-1" />
-            <p className="text-xs text-white/60">Paid</p>
-            <p className="font-bold text-white">₹{totalPaid}</p>
+            <p className="text-xs text-gray-600">Paid</p>
+            <p className="font-bold text-gray-800">₹{totalPaid}</p>
           </div>
         </div>
       </header>
@@ -176,19 +176,19 @@ const PatientBillingPage = () => {
         {/* Search and Filter */}
         <div className="flex gap-3 mt-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="text"
               placeholder="Search bills..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-white/40"
+              className="w-full h-11 pl-10 pr-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-500"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-11 px-4 bg-white/10 border border-white/10 rounded-xl text-white"
+            className="h-11 px-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-800"
           >
             <option value="all">All</option>
             <option value="pending">Pending</option>
@@ -200,7 +200,7 @@ const PatientBillingPage = () => {
         {/* Pending/Overdue Bills */}
         {(totalPending > 0 || totalOverdue > 0) && (
           <section className="mt-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-400" />
               Outstanding Bills
             </h2>
@@ -217,13 +217,13 @@ const PatientBillingPage = () => {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white">{bill.description}</h3>
-                      <p className="text-sm text-white/50 mt-1">
+                      <h3 className="font-semibold text-gray-800">{bill.description}</h3>
+                      <p className="text-sm text-gray-800/50 mt-1">
                         Bill Date: {format(new Date(bill.created_date), 'MMM d, yyyy')}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-xl text-white">₹{bill.amount}</p>
+                      <p className="font-bold text-xl text-gray-800">₹{bill.amount}</p>
                       {getStatusBadge(bill.status)}
                     </div>
                   </div>
@@ -247,7 +247,7 @@ const PatientBillingPage = () => {
 
         {/* Payment History */}
         <section className="mt-8">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Receipt className="w-5 h-5 text-green-400" />
             Payment History
           </h2>
@@ -274,15 +274,15 @@ const PatientBillingPage = () => {
                         <CheckCircle className="w-5 h-5 text-green-400" />
                       </div>
                       <div>
-                        <p className="font-semibold text-white">₹{payment.amount}</p>
-                        <p className="text-xs text-white/50">{payment.method}</p>
+                        <p className="font-semibold text-gray-800">₹{payment.amount}</p>
+                        <p className="text-xs text-gray-800/50">{payment.method}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-white/70">
+                      <p className="text-sm text-gray-800/70">
                         {format(new Date(payment.payment_date), 'MMM d, yyyy')}
                       </p>
-                      <p className="text-xs text-white/40">{payment.transaction_id}</p>
+                      <p className="text-xs text-gray-500">{payment.transaction_id}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -299,7 +299,7 @@ const PatientBillingPage = () => {
 
         {/* Payment Methods */}
         <section className="mt-8 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Wallet className="w-5 h-5 text-blue-400" />
             Payment Methods
           </h2>
@@ -311,8 +311,8 @@ const PatientBillingPage = () => {
                   <CreditCard className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-white">**** **** **** 4242</p>
-                  <p className="text-xs text-white/50">Expires 12/26</p>
+                  <p className="font-semibold text-gray-800">**** **** **** 4242</p>
+                  <p className="text-xs text-gray-800/50">Expires 12/26</p>
                 </div>
               </div>
               <Badge variant="success">Default</Badge>
@@ -334,41 +334,41 @@ const PatientBillingPage = () => {
       >
         {selectedBill && (
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-white/5">
-              <p className="text-sm text-white/60">Amount Due</p>
-              <p className="text-3xl font-bold text-white">₹{selectedBill.amount}</p>
-              <p className="text-sm text-white/50 mt-2">{selectedBill.description}</p>
+            <div className="p-4 rounded-xl bg-gray-50">
+              <p className="text-sm text-gray-600">Amount Due</p>
+              <p className="text-3xl font-bold text-gray-800">₹{selectedBill.amount}</p>
+              <p className="text-sm text-gray-800/50 mt-2">{selectedBill.description}</p>
             </div>
 
             <div>
-              <p className="text-sm text-white/70 mb-3">Select Payment Method</p>
+              <p className="text-sm text-gray-800/70 mb-3">Select Payment Method</p>
               <div className="space-y-2">
                 <button
                   onClick={() => setPaymentMethod('card')}
                   className={`w-full p-4 rounded-xl border flex items-center gap-3 transition-colors ${
-                    paymentMethod === 'card' ? 'border-primary bg-primary/10' : 'border-white/10'
+                    paymentMethod === 'card' ? 'border-primary bg-primary/10' : 'border-gray-200'
                   }`}
                 >
                   <CreditCard className="w-5 h-5 text-primary" />
-                  <span className="text-white">Credit / Debit Card</span>
+                  <span className="text-gray-800">Credit / Debit Card</span>
                 </button>
                 <button
                   onClick={() => setPaymentMethod('upi')}
                   className={`w-full p-4 rounded-xl border flex items-center gap-3 transition-colors ${
-                    paymentMethod === 'upi' ? 'border-primary bg-primary/10' : 'border-white/10'
+                    paymentMethod === 'upi' ? 'border-primary bg-primary/10' : 'border-gray-200'
                   }`}
                 >
                   <Shield className="w-5 h-5 text-green-400" />
-                  <span className="text-white">UPI</span>
+                  <span className="text-gray-800">UPI</span>
                 </button>
                 <button
                   onClick={() => setPaymentMethod('netbanking')}
                   className={`w-full p-4 rounded-xl border flex items-center gap-3 transition-colors ${
-                    paymentMethod === 'netbanking' ? 'border-primary bg-primary/10' : 'border-white/10'
+                    paymentMethod === 'netbanking' ? 'border-primary bg-primary/10' : 'border-gray-200'
                   }`}
                 >
                   <Wallet className="w-5 h-5 text-yellow-400" />
-                  <span className="text-white">Net Banking</span>
+                  <span className="text-gray-800">Net Banking</span>
                 </button>
               </div>
             </div>
@@ -389,3 +389,6 @@ const PatientBillingPage = () => {
 }
 
 export default PatientBillingPage
+
+
+

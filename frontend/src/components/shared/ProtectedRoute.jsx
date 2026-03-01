@@ -15,10 +15,8 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
-          // No valid session, check if user is stored in localStorage
           const storedUser = localStorage.getItem('hospital_user')
           if (storedUser) {
-            // Clear invalid stored user
             localStorage.removeItem('hospital_user')
             setSessionValid(false)
           }
@@ -40,16 +38,15 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
   if (isLoading || checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 via-accent-purple to-accent-pink">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-white animate-spin" />
-          <p className="text-white/60">Loading...</p>
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     )
   }
 
-  // Check if user exists (authenticated)
   const isAuthenticated = !!user && sessionValid
 
   if (!isAuthenticated) {
@@ -59,7 +56,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userRole = user?.role
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
-    // Redirect to appropriate dashboard based on role
     const dashboardPath = userRole === 'doctor' 
       ? '/doctor/dashboard' 
       : userRole === 'mediator' 
@@ -72,3 +68,5 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 }
 
 export default ProtectedRoute
+
+

@@ -50,7 +50,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
         <p className="text-red-500 text-sm mt-1">{error}</p>
         <button 
           onClick={fetchData}
-          className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+          className="mt-4 px-4 py-2 bg-red-500 text-gray-800 rounded-lg hover:bg-red-600"
         >
           Retry
         </button>
@@ -65,11 +65,11 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
       {/* Header */}
       <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <Activity className="w-6 h-6" />
             Queue Display Board
           </h2>
-          <div className="text-white/80 text-sm flex items-center gap-2">
+          <div className="text-gray-700 text-sm flex items-center gap-2">
             <Clock className="w-4 h-4" />
             {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Loading...'}
           </div>
@@ -109,21 +109,21 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 text-white"
+              className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 text-gray-800"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-white/80 mb-1">Token Number</div>
+                  <div className="text-sm text-gray-700 mb-1">Token Number</div>
                   <div className="text-5xl font-bold mb-2">{current_token.token_number}</div>
                   <div className="text-lg">{current_token.patient_name}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-white/80 mb-1">Doctor</div>
+                  <div className="text-sm text-gray-700 mb-1">Doctor</div>
                   <div className="text-xl font-semibold mb-2">{current_token.doctor_name}</div>
                   <div className="bg-white/20 rounded-lg px-4 py-2">
                     Room {current_token.room_number}
                   </div>
-                  <div className="text-sm text-white/80 mt-2">
+                  <div className="text-sm text-gray-700 mt-2">
                     {current_token.elapsed_minutes} min elapsed
                   </div>
                 </div>
@@ -155,7 +155,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
                 >
                   <div className="flex items-center gap-4">
                     <div className={`
-                      w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
+                      w-10 h-10 rounded-full flex items-center justify-center font-bold text-gray-800
                       ${token.priority === 'emergency' ? 'bg-red-500' : 
                         token.priority === 'high' ? 'bg-orange-500' : 'bg-primary-500'}
                     `}>
@@ -203,3 +203,5 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
 }
 
 export default QueueDisplayBoard
+
+

@@ -41,7 +41,7 @@ const Modal = ({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={clsx(
-              'relative w-full bg-white/10 backdrop-blur-xl',
+              'relative w-full bg-gray-100 backdrop-blur-xl',
               'border border-white/20 rounded-2xl shadow-glass-lg',
               'p-6 mx-4',
               sizes[size],
@@ -52,14 +52,14 @@ const Modal = ({
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between mb-4">
                 {title && (
-                  <h2 className="text-xl font-semibold text-white">
+                  <h2 className="text-xl font-semibold text-gray-800">
                     {title}
                   </h2>
                 )}
                 {showCloseButton && (
                   <button
                     onClick={onClose}
-                    className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                    className="p-1 rounded-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -68,7 +68,7 @@ const Modal = ({
             )}
             
             {/* Body */}
-            <div className="text-white/90">
+            <div className="text-gray-800/90">
               {children}
             </div>
           </motion.div>
@@ -79,3 +79,5 @@ const Modal = ({
 }
 
 export default Modal
+
+

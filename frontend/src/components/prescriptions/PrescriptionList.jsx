@@ -435,3 +435,4 @@ const PrescriptionList = ({ patientId, showActions = true }) => {
 
 export default PrescriptionList
 export { PrescriptionCard, PrescriptionDetail }
+

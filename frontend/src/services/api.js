@@ -20,14 +20,14 @@ export const signUp = async (email, password, userData) => {
       },
     },
   })
-  
+
   if (error) throw error
-  
+
   // Create profile in the appropriate table based on role
   if (data.user) {
     await createUserProfile(data.user.id, userData)
   }
-  
+
   return data
 }
 
@@ -36,7 +36,7 @@ export const signIn = async (email, password) => {
     email,
     password,
   })
-  
+
   if (error) throw error
   return data
 }
@@ -66,7 +66,7 @@ export const createUserProfile = async (userId, userData) => {
       gender: userData.gender || null,
       blood_group: userData.bloodGroup || null,
     }])
-  
+
   if (error) throw error
   return true
 }
@@ -78,7 +78,7 @@ export const updateUserProfile = async (table, userId, updates) => {
     .eq('id', userId)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -89,7 +89,7 @@ export const getUserProfile = async (table, userId) => {
     .select('*')
     .eq('id', userId)
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -98,13 +98,13 @@ export const getAllPatients = async (filters = {}) => {
   let query = supabase
     .from('patients')
     .select('*')
-  
+
   if (filters.search) {
     query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
   }
-  
+
   const { data, error } = await query.order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data
 }
@@ -113,21 +113,21 @@ export const getAllDoctors = async (filters = {}) => {
   let query = supabase
     .from('doctors')
     .select('*')
-  
+
   if (filters.specialization) {
     query = query.eq('specialization', filters.specialization)
   }
-  
+
   if (filters.location) {
     query = query.ilike('location', `%${filters.location}%`)
   }
-  
+
   if (filters.search) {
     query = query.or(`full_name.ilike.%${filters.search}%,specialization.ilike.%${filters.search}%`)
   }
-  
+
   const { data, error } = await query.order('rating', { ascending: false })
-  
+
   if (error) throw error
   return data
 }
@@ -137,40 +137,46 @@ export const getAllDoctors = async (filters = {}) => {
 // ============================================================
 
 export const getDoctors = async (filters = {}) => {
+  // Doctors table has medical info; names/avatars are in profiles
   let query = supabase
     .from('doctors')
-    .select('*')
-    
+    .select('*, profile:profiles!id(full_name, avatar_url)')
+
   if (filters.specialization) {
     query = query.eq('specialization', filters.specialization)
   }
-    
+
   if (filters.location) {
     query = query.ilike('location', `%${filters.location}%`)
   }
-    
-  if (filters.search) {
-    query = query.or(`full_name.ilike.%${filters.search}%,specialization.ilike.%${filters.search}%`)
-  }
-    
+
   const { data, error } = await query.order('rating', { ascending: false })
-    
+
   if (error) {
     console.error('Error fetching doctors:', error)
     return []
   }
-  return data
+  // Flatten profile fields into the doctor object
+  return (data || []).map(d => ({
+    ...d,
+    full_name: d.profile?.full_name || 'Unknown Doctor',
+    avatar_url: d.profile?.avatar_url || null,
+  }))
 }
 
 export const getDoctorById = async (doctorId) => {
   const { data, error } = await supabase
     .from('doctors')
-    .select('*')
+    .select('*, profile:profiles!id(full_name, avatar_url)')
     .eq('id', doctorId)
     .single()
-   
+
   if (error) throw error
-  return data
+  return {
+    ...data,
+    full_name: data.profile?.full_name || 'Unknown Doctor',
+    avatar_url: data.profile?.avatar_url || null,
+  }
 }
 
 export const getDoctorReviews = async (doctorId) => {
@@ -179,7 +185,7 @@ export const getDoctorReviews = async (doctorId) => {
     .select('*')
     .eq('doctor_id', doctorId)
     .order('created_at', { ascending: false })
-   
+
   if (error) throw error
   return data
 }
@@ -196,7 +202,7 @@ export const addDoctorReview = async (reviewData) => {
     }])
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -205,12 +211,12 @@ export const getSpecializations = async () => {
   const { data, error } = await supabase
     .from('doctors')
     .select('specialization')
-    
+
   if (error) {
     console.error('Error fetching specializations:', error)
     return []
   }
-    
+
   // Get unique specializations
   const specializations = [...new Set(data.map(d => d.specialization).filter(Boolean))]
   return specializations
@@ -224,13 +230,13 @@ export const getPatients = async (filters = {}) => {
   let query = supabase
     .from('patients')
     .select('*')
-   
+
   if (filters.search) {
     query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
   }
-   
+
   const { data, error } = await query.order('created_at', { ascending: false })
-   
+
   if (error) throw error
   return data
 }
@@ -241,7 +247,7 @@ export const getPatientById = async (patientId) => {
     .select('*')
     .eq('id', patientId)
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -259,13 +265,13 @@ export const checkSlotAvailability = async (doctorId, date, time, excludeAppoint
     .eq('date', date)
     .eq('time', time)
     .in('status', ['pending', 'confirmed'])
-  
+
   if (excludeAppointmentId) {
     query = query.neq('id', excludeAppointmentId)
   }
-  
+
   const { data, error } = await query
-  
+
   if (error) throw error
   return data.length === 0 // true if available (no existing appointments)
 }
@@ -278,7 +284,7 @@ export const getBookedSlots = async (doctorId, date) => {
     .eq('doctor_id', doctorId)
     .eq('date', date)
     .in('status', ['pending', 'confirmed'])
-  
+
   if (error) throw error
   return data.map(apt => apt.time)
 }
@@ -291,20 +297,20 @@ export const getAvailableTimeSlots = async (doctorId, date, allSlots = null) => 
     '12:00 PM', '12:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
     '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
   ]
-  
+
   const slotsToUse = allSlots || defaultSlots
-  
+
   // Get doctor's availability for the day
   const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' })
   const doctor = await getDoctorById(doctorId)
-  
+
   // If doctor has custom availability, use it
   if (doctor?.availability && doctor.availability[dayName]) {
     const doctorSlots = doctor.availability[dayName]
     const bookedSlots = await getBookedSlots(doctorId, date)
     return doctorSlots.filter(slot => !bookedSlots.includes(slot))
   }
-  
+
   // Otherwise use default slots minus booked ones
   const bookedSlots = await getBookedSlots(doctorId, date)
   return slotsToUse.filter(slot => !bookedSlots.includes(slot))
@@ -317,11 +323,11 @@ export const createAppointment = async (appointmentData) => {
     appointmentData.date,
     appointmentData.time
   )
-  
+
   if (!isAvailable) {
     throw new Error('This time slot is no longer available. Please select another time.')
   }
-  
+
   const { data, error } = await supabase
     .from('appointments')
     .insert([{
@@ -340,9 +346,9 @@ export const createAppointment = async (appointmentData) => {
     }])
     .select()
     .single()
-  
+
   if (error) throw error
-  
+
   // Create notification for doctor
   try {
     await supabase
@@ -358,7 +364,7 @@ export const createAppointment = async (appointmentData) => {
     console.error('Failed to create notification:', notifError)
     // Don't fail the appointment if notification fails
   }
-  
+
   return data
 }
 
@@ -366,25 +372,25 @@ export const getAppointments = async (filters = {}) => {
   let query = supabase
     .from('appointments')
     .select('*')
-   
+
   if (filters.patientId) {
     query = query.eq('patient_id', filters.patientId)
   }
-   
+
   if (filters.doctorId) {
     query = query.eq('doctor_id', filters.doctorId)
   }
-   
+
   if (filters.status) {
     query = query.eq('status', filters.status)
   }
-   
+
   if (filters.date) {
     query = query.eq('date', filters.date)
   }
-   
+
   const { data, error } = await query.order('date', { ascending: true })
-   
+
   if (error) throw error
   return data
 }
@@ -395,7 +401,7 @@ export const getAppointmentById = async (appointmentId) => {
     .select('*')
     .eq('id', appointmentId)
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -410,7 +416,7 @@ export const updateAppointment = async (appointmentId, updates) => {
     .eq('id', appointmentId)
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -427,17 +433,17 @@ export const getWalkInQueue = async (filters = {}) => {
   let query = supabase
     .from('walk_in_queue')
     .select('*')
-   
+
   if (filters.status) {
     query = query.eq('status', filters.status)
   }
-   
+
   if (filters.doctorId) {
     query = query.eq('doctor_id', filters.doctorId)
   }
-   
+
   const { data, error } = await query.order('created_at', { ascending: true })
-   
+
   if (error) throw error
   return data
 }
@@ -448,11 +454,11 @@ export const getNextToken = async () => {
     .select('token')
     .order('created_at', { ascending: false })
     .limit(1)
-   
+
   if (!queueData || queueData.length === 0) {
     return 'A001'
   }
-   
+
   const lastToken = queueData[0].token
   const num = parseInt(lastToken.replace('A', '')) + 1
   return `A${num.toString().padStart(3, '0')}`
@@ -460,7 +466,7 @@ export const getNextToken = async () => {
 
 export const addToWalkInQueue = async (queueData) => {
   const token = await getNextToken()
-   
+
   const { data, error } = await supabase
     .from('walk_in_queue')
     .insert([{
@@ -474,7 +480,7 @@ export const addToWalkInQueue = async (queueData) => {
     }])
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -489,7 +495,7 @@ export const updateWalkInQueue = async (queueId, updates) => {
     .eq('id', queueId)
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -504,7 +510,7 @@ export const getNotifications = async (userId) => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-   
+
   if (error) throw error
   return data
 }
@@ -516,7 +522,7 @@ export const markNotificationRead = async (notificationId) => {
     .eq('id', notificationId)
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -532,7 +538,7 @@ export const createNotification = async (notificationData) => {
     }])
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -545,15 +551,15 @@ export const getMessageThreads = async (userId, userType) => {
   let query = supabase
     .from('message_threads')
     .select('*')
-   
+
   if (userType === 'patient') {
     query = query.eq('patient_id', userId)
   } else if (userType === 'doctor') {
     query = query.eq('doctor_id', userId)
   }
-   
+
   const { data, error } = await query.order('last_message_at', { ascending: false })
-   
+
   if (error) throw error
   return data
 }
@@ -564,7 +570,7 @@ export const getMessages = async (threadId) => {
     .select('*')
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true })
-   
+
   if (error) throw error
   return data
 }
@@ -580,9 +586,9 @@ export const sendMessage = async (messageData) => {
     }])
     .select()
     .single()
-   
+
   if (msgError) throw msgError
-   
+
   // Update thread's last_message
   await supabase
     .from('message_threads')
@@ -591,22 +597,48 @@ export const sendMessage = async (messageData) => {
       last_message_at: new Date().toISOString(),
     })
     .eq('id', messageData.threadId)
-   
+
   return message
 }
 
 export const createMessageThread = async (threadData) => {
+  // Look up patient name from profiles if not provided
+  let patientName = threadData.patientName
+  let patientAvatar = threadData.patientAvatar || null
+
+  if (!patientName) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, avatar_url')
+      .eq('id', threadData.patientId)
+      .single()
+    patientName = profile?.full_name || 'Patient'
+    patientAvatar = profile?.avatar_url || null
+  }
+
+  // Check if thread already exists (handle the unique constraint gracefully)
+  const { data: existing } = await supabase
+    .from('message_threads')
+    .select('*')
+    .eq('patient_id', threadData.patientId)
+    .eq('doctor_id', threadData.doctorId)
+    .single()
+
+  if (existing) return existing
+
   const { data, error } = await supabase
     .from('message_threads')
     .insert([{
       patient_id: threadData.patientId,
+      patient_name: patientName,
+      patient_avatar: patientAvatar,
       doctor_id: threadData.doctorId,
       doctor_name: threadData.doctorName,
       doctor_avatar: threadData.doctorAvatar || null,
     }])
     .select()
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -621,7 +653,7 @@ export const getMedicalRecords = async (patientId) => {
     .select('*')
     .eq('patient_id', patientId)
     .order('created_at', { ascending: false })
-   
+
   if (error) throw error
   return data
 }
@@ -632,7 +664,7 @@ export const getMedicalRecordById = async (recordId) => {
     .select('*')
     .eq('id', recordId)
     .single()
-   
+
   if (error) throw error
   return data
 }
@@ -644,14 +676,121 @@ export const createMedicalRecord = async (recordData) => {
       patient_id: recordData.patientId,
       doctor_id: recordData.doctorId || null,
       doctor_name: recordData.doctorName || null,
+      record_type: recordData.type || 'consultation',
       title: recordData.title,
-      type: recordData.type || 'consultation',
       description: recordData.description || null,
       file_url: recordData.fileUrl || null,
     }])
     .select()
     .single()
-   
+
+  if (error) throw error
+  return data
+}
+
+// ============================================================
+// FILE UPLOAD (Medical Records, Lab Results, etc.)
+// ============================================================
+
+export const uploadFile = async (file, folder = 'documents') => {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`
+  const filePath = `${folder}/${fileName}`
+
+  const { data, error } = await supabase.storage
+    .from('hospital-files')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+
+  if (error) throw error
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('hospital-files')
+    .getPublicUrl(filePath)
+
+  return urlData.publicUrl
+}
+
+export const deleteFile = async (fileUrl) => {
+  // Extract file path from URL
+  const urlParts = fileUrl.split('/')
+  const fileName = urlParts[urlParts.length - 1]
+  const folder = urlParts[urlParts.length - 2]
+  const filePath = `${folder}/${fileName}`
+
+  const { error } = await supabase.storage
+    .from('hospital-files')
+    .remove([filePath])
+
+  if (error) throw error
+  return true
+}
+
+// ============================================================
+// SHARE RECORDS (Send to Doctor or Other Users)
+// ============================================================
+
+export const shareRecord = async (shareData) => {
+  const { data, error } = await supabase
+    .from('shared_records')
+    .insert([{
+      record_id: shareData.recordId,
+      record_type: shareData.recordType,
+      patient_id: shareData.patientId,
+      recipient_id: shareData.recipientId,
+      recipient_type: shareData.recipientType,
+      recipient_name: shareData.recipientName,
+      share_note: shareData.shareNote || null,
+      access_token: shareData.accessToken || null,
+      expires_at: shareData.expiresAt || null,
+    }])
+    .select()
+    .single()
+
+  if (error) throw error
+
+  // Create notification for recipient
+  await supabase
+    .from('notifications')
+    .insert([{
+      user_id: shareData.recipientId,
+      type: 'share',
+      title: 'New Shared Record',
+      message: `You have received a shared ${shareData.recordType} from a patient`,
+      read: false,
+    }])
+
+  return data
+}
+
+export const getSharedRecords = async (userId, userType) => {
+  let query = supabase
+    .from('shared_records')
+    .select('*')
+
+  if (userType === 'patient') {
+    query = query.eq('patient_id', userId)
+  } else {
+    query = query.eq('recipient_id', userId)
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
+export const revokeSharedRecord = async (shareId) => {
+  const { data, error } = await supabase
+    .from('shared_records')
+    .update({ revoked: true, revoked_at: new Date().toISOString() })
+    .eq('id', shareId)
+    .select()
+    .single()
+
   if (error) throw error
   return data
 }
@@ -665,7 +804,7 @@ export const getPrescriptions = async (patientId) => {
     .select('*')
     .eq('patient_id', patientId)
     .order('prescribed_date', { ascending: false })
-  
+
   if (error) throw error
   return data
 }
@@ -686,7 +825,7 @@ export const createPrescription = async (prescriptionData) => {
     }])
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -761,27 +900,27 @@ export const getDoctorEarnings = async (doctorId) => {
     .eq('doctor_id', doctorId)
     .eq('payment_status', 'paid')
     .order('date', { ascending: false })
-  
+
   if (error) throw error
-  
+
   const totalEarnings = data?.reduce((sum, appt) => sum + (parseFloat(appt.amount) || 0), 0) || 0
-  
+
   // This month's earnings
   const thisMonth = new Date().toISOString().slice(0, 7)
   const thisMonthEarnings = data
     ?.filter(appt => appt.date.startsWith(thisMonth))
     .reduce((sum, appt) => sum + (parseFloat(appt.amount) || 0), 0) || 0
-  
+
   // Pending payments
   const { data: pendingData } = await supabase
     .from('appointments')
     .select('amount')
     .eq('doctor_id', doctorId)
     .eq('payment_status', 'pending')
-  
+
   const pendingPayout = pendingData
     ?.reduce((sum, appt) => sum + (parseFloat(appt.amount) || 0), 0) || 0
-  
+
   return {
     totalEarnings,
     thisMonth: thisMonthEarnings,
@@ -803,33 +942,33 @@ export const getAllAppointmentsDetailed = async (filters = {}) => {
       patient:patients(id, full_name, email, phone),
       doctor:doctors(id, full_name, specialization, email)
     `)
-  
+
   if (filters.doctorId) {
     query = query.eq('doctor_id', filters.doctorId)
   }
-  
+
   if (filters.patientId) {
     query = query.eq('patient_id', filters.patientId)
   }
-  
+
   if (filters.status) {
     query = query.eq('status', filters.status)
   }
-  
+
   if (filters.date) {
     query = query.eq('date', filters.date)
   }
-  
+
   if (filters.startDate) {
     query = query.gte('date', filters.startDate)
   }
-  
+
   if (filters.endDate) {
     query = query.lte('date', filters.endDate)
   }
-  
+
   const { data, error } = await query.order('date', { ascending: false })
-  
+
   if (error) throw error
   return data
 }
@@ -838,7 +977,7 @@ export const getAllAppointmentsDetailed = async (filters = {}) => {
 export const getAppointmentStats = async (period = 'week') => {
   const now = new Date()
   let startDate, endDate
-  
+
   if (period === 'week') {
     startDate = startOfWeek(now)
     endDate = endOfWeek(now)
@@ -849,15 +988,15 @@ export const getAppointmentStats = async (period = 'week') => {
     startDate = subDays(now, 6)
     endDate = now
   }
-  
+
   const { data, error } = await supabase
     .from('appointments')
     .select('status, date, amount, payment_status')
     .gte('date', format(startDate, 'yyyy-MM-dd'))
     .lte('date', format(endDate, 'yyyy-MM-dd'))
-  
+
   if (error) throw error
-  
+
   const stats = {
     total: data.length,
     pending: data.filter(a => a.status === 'pending').length,
@@ -866,7 +1005,7 @@ export const getAppointmentStats = async (period = 'week') => {
     cancelled: data.filter(a => a.status === 'cancelled').length,
     revenue: data.filter(a => a.payment_status === 'paid').reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0),
   }
-  
+
   return stats
 }
 
@@ -885,7 +1024,7 @@ export const updateDoctorAvailability = async (doctorId, availability) => {
     .eq('id', doctorId)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -901,7 +1040,7 @@ export const setDoctorUnavailableDates = async (doctorId, unavailableDates) => {
     .eq('id', doctorId)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -916,9 +1055,9 @@ export const getDoctorPatients = async (doctorId) => {
       patient:patients(id, full_name, email, phone, gender, blood_group, date_of_birth)
     `)
     .eq('doctor_id', doctorId)
-  
+
   if (error) throw error
-  
+
   // Get unique patients
   const patientMap = new Map()
   data.forEach(apt => {
@@ -926,7 +1065,7 @@ export const getDoctorPatients = async (doctorId) => {
       patientMap.set(apt.patient_id, apt.patient)
     }
   })
-  
+
   return Array.from(patientMap.values())
 }
 
@@ -945,7 +1084,7 @@ export const updatePatientMedicalHistory = async (patientId, updates) => {
     .eq('id', patientId)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -988,11 +1127,11 @@ const format = (date, formatStr) => {
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
-  
+
   if (formatStr === 'yyyy-MM-dd') {
     return `${year}-${month}-${day}`
   }
-  
+
   // Default format
   return `${year}-${month}-${day}`
 }

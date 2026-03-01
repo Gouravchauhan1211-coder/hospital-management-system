@@ -1,428 +1,234 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  MessageSquare, 
-  Send, 
-  ArrowLeft,
-  Search,
-  Stethoscope,
-  MoreVertical,
-  Phone,
-  Video,
-  Paperclip,
-  Smile
-} from 'lucide-react'
-import { format, formatDistanceToNow } from 'date-fns'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
-import { getMessageThreads, getMessages, sendMessage, createMessageThread, getDoctors } from '../../services/api'
-import { useMessages } from '../../hooks/useRealtimeSubscription'
+import { supabase } from '../../services/supabase'
+import { getDoctors } from '../../services/api'
 import { DashboardLayout } from '../../components/layout'
-import { GlassCard, Avatar, Button, Input, Badge } from '../../components/ui'
-import { EmptyState } from '../../components/shared'
-import { CardSkeleton } from '../../components/ui/Skeleton'
+import { ThreadList, ChatWindow } from '../../components/chat'
+import { Avatar } from '../../components/ui'
 
 const PatientMessagesPage = () => {
-  const { threadId } = useParams()
-  const navigate = useNavigate()
-  const { user } = useAuthStore()
-  const [threads, setThreads] = useState([])
-  const [selectedThread, setSelectedThread] = useState(null)
-  const [messages, setMessages] = useState([])
-  const [newMessage, setNewMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSending, setIsSending] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showNewChat, setShowNewChat] = useState(false)
-  const [doctors, setDoctors] = useState([])
-  const messagesEndRef = useRef(null)
+    const { threadId } = useParams()
+    const navigate = useNavigate()
+    const { user } = useAuthStore()
 
-  // Real-time message subscription for selected thread
-  const { data: realtimeMessages } = useMessages(selectedThread?.id)
+    const [threads, setThreads] = useState([])
+    const [selectedThread, setSelectedThread] = useState(null)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [isLoading, setIsLoading] = useState(true)
+    const [showNewChat, setShowNewChat] = useState(false)
+    const [doctors, setDoctors] = useState([])
+    const [doctorSearch, setDoctorSearch] = useState('')
+    const [isStarting, setIsStarting] = useState(false)
 
-  // Fetch threads on mount
-  useEffect(() => {
-    const fetchThreads = async () => {
-      if (!user?.id) return
-      
-      try {
-        const threadsData = await getMessageThreads(user.id, 'patient')
-        setThreads(threadsData || [])
-      } catch (error) {
-        console.error('Error fetching threads:', error)
-      } finally {
-        setIsLoading(false)
-      }
+    // Load threads
+    useEffect(() => {
+        if (!user?.id) return
+        const load = async () => {
+            setIsLoading(true)
+            try {
+                const { data, error } = await supabase
+                    .from('message_threads')
+                    .select('*')
+                    .eq('patient_id', user.id)
+                    .order('last_message_at', { ascending: false, nullsFirst: false })
+                if (error) throw error
+
+                // Attach unread counts
+                const withCounts = await Promise.all(
+                    (data || []).map(async (t) => {
+                        const { count } = await supabase
+                            .from('messages')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('thread_id', t.id)
+                            .eq('is_read', false)
+                            .neq('sender_id', user.id)
+                        return { ...t, unread_count: count || 0 }
+                    })
+                )
+                setThreads(withCounts)
+
+                // Auto-select if threadId in URL
+                if (threadId) {
+                    const found = withCounts.find(t => t.id === threadId)
+                    if (found) setSelectedThread(found)
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setIsLoading(false)
+            }
+        }
+        load()
+    }, [user?.id, threadId])
+
+    // Load doctors when modal opens
+    useEffect(() => {
+        if (!showNewChat) return
+        getDoctors({}).then(setDoctors).catch(console.error)
+    }, [showNewChat])
+
+    const filteredThreads = useMemo(() =>
+        threads.filter(t =>
+            (t.doctor_name || '').toLowerCase().includes(searchQuery.toLowerCase())
+        ), [threads, searchQuery])
+
+    const filteredDoctors = useMemo(() =>
+        doctors.filter(d =>
+            (d.full_name || '').toLowerCase().includes(doctorSearch.toLowerCase()) ||
+            (d.specialization || '').toLowerCase().includes(doctorSearch.toLowerCase())
+        ), [doctors, doctorSearch])
+
+    const handleSelectThread = (thread) => {
+        setSelectedThread(thread)
+        navigate(`/patient/messages/${thread.id}`, { replace: true })
     }
-    fetchThreads()
-  }, [user?.id])
 
-  // Update messages when realtime data changes
-  useEffect(() => {
-    if (realtimeMessages) {
-      setMessages(realtimeMessages)
+    const handleStartChat = async (doctor) => {
+        if (isStarting) return
+        setIsStarting(true)
+        try {
+            // Get patient name from profiles
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .single()
+            const patientName = profile?.full_name || user.fullName || user.full_name || user.email?.split('@')[0] || 'Patient'
+
+            // Try insert first
+            let thread = null
+            const { data: inserted, error: insertErr } = await supabase
+                .from('message_threads')
+                .insert({
+                    patient_id: user.id,
+                    doctor_id: doctor.id,
+                    patient_name: patientName,
+                    doctor_name: doctor.full_name,
+                })
+                .select()
+                .single()
+
+            if (!insertErr) {
+                thread = inserted
+            } else if (insertErr.code === '23505') {
+                // Unique constraint — fetch existing
+                const { data: existing } = await supabase
+                    .from('message_threads')
+                    .select('*')
+                    .eq('patient_id', user.id)
+                    .eq('doctor_id', doctor.id)
+                    .single()
+                thread = existing
+            } else {
+                throw insertErr
+            }
+
+            if (!thread) throw new Error('Could not create or find thread')
+
+            // Add to list if not already there
+            setThreads(prev => {
+                if (prev.find(t => t.id === thread.id)) return prev
+                return [{ ...thread, unread_count: 0 }, ...prev]
+            })
+            setShowNewChat(false)
+            setSelectedThread(thread)
+            navigate(`/patient/messages/${thread.id}`, { replace: true })
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to start conversation')
+        } finally {
+            setIsStarting(false)
+        }
     }
-  }, [realtimeMessages])
 
-  // Fetch messages when thread is selected
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!selectedThread?.id) return
-      
-      try {
-        const messagesData = await getMessages(selectedThread.id)
-        setMessages(messagesData || [])
-      } catch (error) {
-        console.error('Error fetching messages:', error)
-      }
-    }
-    fetchMessages()
-  }, [selectedThread?.id])
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  // Fetch doctors for new chat
-  useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        const doctorsData = await getDoctors({})
-        setDoctors(doctorsData || [])
-      } catch (error) {
-        console.error('Error fetching doctors:', error)
-      }
-    }
-    
-    if (showNewChat) {
-      fetchDoctors()
-    }
-  }, [showNewChat])
-
-  const handleSelectThread = (thread) => {
-    setSelectedThread(thread)
-    navigate(`/patient/messages/${thread.id}`, { replace: true })
-  }
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault()
-    
-    if (!newMessage.trim() || !selectedThread) return
-
-    setIsSending(true)
-    try {
-      await sendMessage({
-        threadId: selectedThread.id,
-        senderId: user.id,
-        senderType: 'patient',
-        text: newMessage.trim()
-      })
-      setNewMessage('')
-      // Real-time subscription will update the messages
-    } catch (error) {
-      console.error('Error sending message:', error)
-      toast.error('Failed to send message')
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  const handleStartNewChat = async (doctor) => {
-    try {
-      // Check if thread already exists
-      const existingThread = threads.find(t => t.doctor_id === doctor.id)
-      
-      if (existingThread) {
-        setSelectedThread(existingThread)
-        navigate(`/patient/messages/${existingThread.id}`, { replace: true })
-      } else {
-        // Create new thread
-        const newThread = await createMessageThread({
-          patientId: user.id,
-          doctorId: doctor.id,
-          doctorName: doctor.full_name,
-          doctorAvatar: doctor.avatar_url
-        })
-        
-        setThreads(prev => [newThread, ...prev])
-        setSelectedThread(newThread)
-        navigate(`/patient/messages/${newThread.id}`, { replace: true })
-      }
-      
-      setShowNewChat(false)
-    } catch (error) {
-      console.error('Error starting chat:', error)
-      toast.error('Failed to start conversation')
-    }
-  }
-
-  const filteredThreads = useMemo(() => {
-    if (!searchQuery) return threads
-    return threads.filter(t => 
-      t.doctor_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  }, [threads, searchQuery])
-
-  return (
-    <DashboardLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-120px)]">
-        {/* Threads List */}
-        <div className={`${selectedThread ? 'hidden lg:block' : ''}`}>
-          <GlassCard className="h-full flex flex-col">
-            {/* Header */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Messages</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewChat(true)}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-primary-500"
-                />
-              </div>
-            </div>
-
-            {/* Threads List */}
-            <div className="flex-1 overflow-y-auto">
-              {isLoading ? (
-                <div className="p-4 space-y-3">
-                  <CardSkeleton />
-                  <CardSkeleton />
-                </div>
-              ) : filteredThreads.length > 0 ? (
-                filteredThreads.map((thread) => (
-                  <motion.button
-                    key={thread.id}
-                    onClick={() => handleSelectThread(thread)}
-                    className={`w-full p-4 text-left hover:bg-white/5 transition-colors border-b border-white/5 ${
-                      selectedThread?.id === thread.id ? 'bg-primary-500/10' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar name={thread.doctor_name} src={thread.doctor_avatar} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-white truncate">
-                            Dr. {thread.doctor_name}
-                          </p>
-                          <span className="text-xs text-white/40">
-                            {thread.last_message_at && formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-white/60 truncate">
-                          {thread.last_message || 'No messages yet'}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.button>
-                ))
-              ) : (
-                <EmptyState
-                  icon={MessageSquare}
-                  title="No conversations"
-                  description="Start a new conversation with a doctor"
-                  action={
-                    <Button variant="primary" size="sm" onClick={() => setShowNewChat(true)}>
-                      New Chat
-                    </Button>
-                  }
-                />
-              )}
-            </div>
-          </GlassCard>
-        </div>
-
-        {/* Chat Window */}
-        <div className={`${selectedThread ? '' : 'hidden lg:block'} lg:col-span-2`}>
-          {selectedThread ? (
-            <GlassCard className="h-full flex flex-col">
-              {/* Chat Header */}
-              <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setSelectedThread(null)}
-                    className="lg:hidden p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <Avatar name={selectedThread.doctor_name} src={selectedThread.doctor_avatar} size="md" />
-                  <div>
-                    <p className="font-medium text-white">Dr. {selectedThread.doctor_name}</p>
-                    <p className="text-xs text-success">Online</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => navigate(`/call/${selectedThread.id}?type=audio`)}
-                    title="Voice Call"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => navigate(`/call/${selectedThread.id}?type=video`)}
-                    title="Video Call"
-                  >
-                    <Video className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.length > 0 ? (
-                  messages.map((message, index) => {
-                    const isOwn = message.sender_id === user.id
-                    return (
-                      <motion.div
-                        key={message.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.02 }}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[70%] p-3 rounded-2xl ${
-                            isOwn
-                              ? 'bg-primary-500 text-white rounded-br-md'
-                              : 'bg-white/10 text-white rounded-bl-md'
-                          }`}
-                        >
-                          <p className="text-sm">{message.text}</p>
-                          <p className={`text-xs mt-1 ${isOwn ? 'text-white/60' : 'text-white/40'}`}>
-                            {message.created_at && format(new Date(message.created_at), 'h:mm a')}
-                          </p>
-                        </div>
-                      </motion.div>
-                    )
-                  })
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <EmptyState
-                      icon={MessageSquare}
-                      title="Start the conversation"
-                      description="Send a message to begin chatting"
+    return (
+        <DashboardLayout>
+            <div className="flex flex-col h-[calc(100vh-130px)] bg-white rounded-2xl overflow-hidden shadow-sm">
+                {selectedThread ? (
+                    <ChatWindow
+                        thread={selectedThread}
+                        onBack={() => {
+                            setSelectedThread(null)
+                            navigate('/patient/messages', { replace: true })
+                        }}
                     />
-                  </div>
+                ) : (
+                    <>
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <h1 className="text-base font-semibold text-gray-900">Messages</h1>
+                            <button
+                                onClick={() => setShowNewChat(true)}
+                                className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-medium"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                New Chat
+                            </button>
+                        </div>
+
+                        <ThreadList
+                            threads={filteredThreads}
+                            currentUserId={user?.id}
+                            userRole="patient"
+                            onSelect={handleSelectThread}
+                            selectedThreadId={selectedThread?.id}
+                            searchQuery={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            isLoading={isLoading}
+                        />
+                    </>
                 )}
-                <div ref={messagesEndRef} />
-              </div>
+            </div>
 
-              {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="ghost" size="sm">
-                    <Paperclip className="w-4 h-4" />
-                  </Button>
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-primary-500"
-                  />
-                  <Button type="button" variant="ghost" size="sm">
-                    <Smile className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={!newMessage.trim() || isSending}
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </form>
-            </GlassCard>
-          ) : (
-            <GlassCard className="h-full flex items-center justify-center">
-              <EmptyState
-                icon={MessageSquare}
-                title="Select a conversation"
-                description="Choose a conversation from the list to start messaging"
-              />
-            </GlassCard>
-          )}
-        </div>
-      </div>
-
-      {/* New Chat Modal */}
-      <AnimatePresence>
-        {showNewChat && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowNewChat(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="w-full max-w-md bg-black/30 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                <h3 className="font-semibold text-white">Start New Chat</h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowNewChat(false)}>
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="p-4 max-h-96 overflow-y-auto">
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                  <input
-                    type="text"
-                    placeholder="Search doctors..."
-                    className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  {doctors.slice(0, 10).map((doctor) => (
-                    <button
-                      key={doctor.id}
-                      onClick={() => handleStartNewChat(doctor)}
-                      className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-3"
+            {/* New Chat Modal */}
+            {showNewChat && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+                    onClick={() => setShowNewChat(false)}
+                >
+                    <div
+                        className="w-full max-w-md bg-white rounded-t-2xl max-h-[70vh] flex flex-col"
+                        onClick={e => e.stopPropagation()}
                     >
-                      <Avatar name={doctor.full_name} src={doctor.avatar_url} size="md" />
-                      <div className="flex-1 text-left">
-                        <p className="font-medium text-white">Dr. {doctor.full_name}</p>
-                        <p className="text-sm text-white/60">{doctor.specialization}</p>
-                      </div>
-                      <MessageSquare className="w-4 h-4 text-white/40" />
-                    </button>
-                  ))}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <h2 className="font-semibold text-gray-900">Choose a Doctor</h2>
+                            <button onClick={() => setShowNewChat(false)} className="text-gray-400 text-lg">✕</button>
+                        </div>
+                        <div className="px-4 py-2">
+                            <input
+                                type="text"
+                                placeholder="Search doctors..."
+                                value={doctorSearch}
+                                onChange={e => setDoctorSearch(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm focus:outline-none"
+                            />
+                        </div>
+                        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                            {filteredDoctors.length === 0 ? (
+                                <p className="text-center py-8 text-sm text-gray-400">No doctors found</p>
+                            ) : filteredDoctors.map(doc => (
+                                <button
+                                    key={doc.id}
+                                    disabled={isStarting}
+                                    onClick={() => handleStartChat(doc)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                                >
+                                    <Avatar name={doc.full_name} size="md" />
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">{doc.full_name}</p>
+                                        <p className="text-xs text-gray-500">{doc.specialization || 'Doctor'}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </DashboardLayout>
-  )
+            )}
+        </DashboardLayout>
+    )
 }
 
 export default PatientMessagesPage
