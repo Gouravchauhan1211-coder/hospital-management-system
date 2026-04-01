@@ -177,8 +177,10 @@ export const generateAppointmentQueueToken = async (appointmentId, doctorId, pat
  * Get appointment queue for a doctor
  */
 export const getDoctorAppointmentQueue = async (doctorId, date) => {
-  const startOfDay = `${date}T00:00:00.000Z`
-  const endOfDay = `${date}T23:59:59.999Z`
+  // Use local date with timezone adjustment
+  const today = new Date(date)
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString()
 
   // Fetch all for today, filter client-side
   const { data: rawData, error } = await supabase
@@ -186,7 +188,7 @@ export const getDoctorAppointmentQueue = async (doctorId, date) => {
     .select('*')
     .eq('doctor_id', doctorId)
     .gte('created_at', startOfDay)
-    .lte('created_at', endOfDay)
+    .lt('created_at', endOfDay)
     .order('token_number', { ascending: true })
 
   if (error) throw new Error(error.message || 'Failed to fetch queue')

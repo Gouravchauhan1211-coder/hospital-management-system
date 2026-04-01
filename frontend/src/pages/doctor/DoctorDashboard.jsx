@@ -121,10 +121,12 @@ const DoctorDashboard = () => {
     if (!user?.id) return
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      // Use local date instead of UTC
+      const today = new Date()
+      const localDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split('T')[0]
       
       // Get appointment queue
-      const result = await getDoctorAppointmentQueue(user.id, today)
+      const result = await getDoctorAppointmentQueue(user.id, localDate)
       
       if (result.success && result.queue) {
         // Find current patient (in-progress)
@@ -198,10 +200,12 @@ const DoctorDashboard = () => {
 
   // Set up polling interval
   useEffect(() => {
+    if (!user?.id) return
+    
     fetchQueue()
-    const interval = setInterval(fetchQueue, 30000) // Refresh every 30 seconds
+    const interval = setInterval(fetchQueue, 30000)
     return () => clearInterval(interval)
-  }, [fetchQueue])
+  }, [user?.id, fetchQueue])
 
   // Schedule - only pending appointments (for accept/reject)
   const pendingAppointmentsForQueue = useMemo(() => {
