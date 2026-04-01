@@ -12,14 +12,19 @@ import {
  CheckCircle,
  AlertCircle,
  Loader2,
- CreditCard
+ CreditCard,
+ Users,
+ Zap
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import { getDoctorById, getDoctorReviews, createAppointment, getAvailableTimeSlots } from '../../services/api'
+import { supabase } from '../../services/supabase'
 import { DashboardLayout } from '../../components/layout'
 import { GlassCard, Badge, Avatar, Button } from '../../components/ui'
 import PaymentModal from '../../components/payment/PaymentModal'
+
+const MAX_CAPACITY = 60
 
 const PatientDoctorProfilePage = () => {
  const { doctorId } = useParams()
@@ -37,6 +42,7 @@ const PatientDoctorProfilePage = () => {
  const [availableSlots, setAvailableSlots] = useState([])
  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
  const [showPayment, setShowPayment] = useState(false)
+  const [doctorCapacity, setDoctorCapacity] = useState({ total: 0, remaining: MAX_CAPACITY, isFull: false })
 
  useEffect(() => {
  const fetchDoctor = async () => {
@@ -55,7 +61,42 @@ const PatientDoctorProfilePage = () => {
  }
  }
  fetchDoctor()
- }, [doctorId])
+  }, [doctorId])
+
+ // Fetch doctor capacity/stats
+ useEffect(() => {
+  const fetchDoctorCapacity = async () => {
+   try {
+    const today = new Date()
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    
+    const { data: queueData } = await supabase
+     .from('appointment_queue')
+     .select('status')
+     .eq('doctor_id', doctorId)
+     .gte('created_at', startOfDay.toISOString())
+     .lt('created_at', endOfDay.toISOString())
+    
+    const waiting = queueData?.filter(q => q.status === 'waiting').length || 0
+    const inProgress = queueData?.filter(q => q.status === 'in-progress').length || 0
+    const completed = queueData?.filter(q => q.status === 'completed').length || 0
+    const total = waiting + inProgress + completed
+    
+    setDoctorCapacity({
+     total,
+     remaining: Math.max(0, MAX_CAPACITY - total),
+     isFull: total >= MAX_CAPACITY
+    })
+   } catch (error) {
+    console.error('Error fetching doctor capacity:', error)
+   }
+  }
+  
+  if (showBooking) {
+   fetchDoctorCapacity()
+  }
+ }, [doctorId, showBooking])
 
  // Fetch available slots when date changes
  useEffect(() => {
@@ -245,8 +286,42 @@ const PatientDoctorProfilePage = () => {
 
  {/* Booking Sidebar */}
  <div>
- <GlassCard className="p-6 sticky top-24">
- <h2 className="text-lg font-semibold text-gray-800 mb-4">Book Appointment</h2>
+<GlassCard className="p-6 sticky top-24">
+  <h2 className="text-lg font-semibold text-gray-800 mb-4">Book Appointment</h2>
+  
+  {/* Doctor Availability Display */}
+  <div className={`p-3 rounded-xl mb-4 ${doctorCapacity.isFull ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+   <div className="flex items-center justify-between mb-2">
+    <div className="flex items-center gap-2">
+     <Users className={`w-4 h-4 ${doctorCapacity.isFull ? 'text-red-500' : 'text-green-600'}`} />
+     <span className="text-sm font-medium text-gray-700">Today's Availability</span>
+    </div>
+    <span className={`text-xs px-2 py-1 rounded-full ${doctorCapacity.isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+     {doctorCapacity.isFull ? 'Full' : 'Available'}
+    </span>
+   </div>
+   <div className="flex items-center gap-2">
+    <div className="flex-1 bg-gray-200 rounded-full h-2">
+     <div 
+      className={`h-2 rounded-full transition-all ${doctorCapacity.isFull ? 'bg-red-500' : 'bg-green-500'}`}
+      style={{ width: `${Math.min(100, (doctorCapacity.total / MAX_CAPACITY) * 100)}%` }}
+     />
+    </div>
+    <span className="text-xs text-gray-500">{doctorCapacity.total}/{MAX_CAPACITY}</span>
+   </div>
+   {doctorCapacity.isFull && (
+    <div className="flex items-center gap-1 mt-2 text-red-600 text-xs">
+     <AlertCircle className="w-3 h-3" />
+     <span>Doctor has reached maximum capacity for today</span>
+    </div>
+   )}
+   {!doctorCapacity.isFull && doctorCapacity.remaining <= 15 && (
+    <div className="flex items-center gap-1 mt-2 text-orange-600 text-xs">
+     <Zap className="w-3 h-3" />
+     <span>Only {doctorCapacity.remaining} slots remaining - hurry!</span>
+    </div>
+   )}
+  </div>
  
  {!showBooking ? (
  <Button variant="primary" className="w-full" onClick={() => setShowBooking(true)}>
