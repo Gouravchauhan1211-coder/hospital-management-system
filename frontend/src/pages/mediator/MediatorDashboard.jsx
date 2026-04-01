@@ -26,7 +26,7 @@ import { getDoctorAppointmentQueue, callPatient, completeConsultation, cancelTok
 import { usePriorityQueue } from '../../hooks/usePriorityQueue'
 import { DashboardLayout } from '../../components/layout'
 import { GlassCard, Button } from '../../components/ui'
-import { PatientCheckIn } from '../../components/mediator'
+import { PatientCheckIn, DoctorAvailabilityCard } from '../../components/mediator'
 import supabase from '../../services/supabase'
 
 const MAX_CAPACITY = 60
@@ -498,6 +498,9 @@ const MediatorDashboard = () => {
             </div>
           </div>
         </section>
+
+        {/* Live Doctor Availability */}
+        <DoctorAvailabilityCard doctors={doctors} />
 
         {/* Patient Check-in Card */}
         <PatientCheckIn

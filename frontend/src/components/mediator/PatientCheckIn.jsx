@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Search, UserPlus, History, AlertTriangle, User, CheckCircle, Clock, Activity, Users, Zap } from 'lucide-react'
+import { Search, UserPlus, History, AlertTriangle, User, CheckCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import supabase from '../../services/supabase'
 import { getCurrentIST } from '../../services/queueEngine'
@@ -64,68 +64,8 @@ const PatientCheckIn = ({
   onViewHistory,
   onMarkUrgent 
 }) => {
-  const [doctorStats, setDoctorStats] = useState({})
-
-  useEffect(() => {
-    const fetchDoctorStats = async () => {
-      const stats = {}
-      const today = new Date()
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-      
-      for (const doctor of doctors) {
-        try {
-          const { data: queueData } = await supabase
-            .from('appointment_queue')
-            .select('status')
-            .eq('doctor_id', doctor.id)
-            .gte('created_at', startOfDay.toISOString())
-            .lt('created_at', endOfDay.toISOString())
-            .in('status', ['waiting', 'in-progress'])
-          
-          const waiting = queueData?.filter(q => q.status === 'waiting').length || 0
-          const inProgress = queueData?.filter(q => q.status === 'in-progress').length || 0
-          const total = waiting + inProgress
-          
-          stats[doctor.id] = {
-            waiting,
-            inProgress,
-            total,
-            remaining: Math.max(0, MAX_CAPACITY - total),
-            isFull: total >= MAX_CAPACITY,
-            isAlmostFull: total >= MAX_CAPACITY * 0.75
-          }
-        } catch (e) {
-          stats[doctor.id] = { waiting: 0, inProgress: 0, total: 0, remaining: MAX_CAPACITY, isFull: false, isAlmostFull: false }
-        }
-      }
-      setDoctorStats(stats)
-    }
-    
-    if (doctors.length > 0) {
-      fetchDoctorStats()
-      const interval = setInterval(fetchDoctorStats, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [doctors])
-  
   const [showCapacityModal, setShowCapacityModal] = useState(false)
   const [capacityFullDoctor, setCapacityFullDoctor] = useState(null)
-
-  const getRecommendedDoctor = () => {
-    let minWait = Infinity
-    let recommended = null
-    
-    for (const doctor of doctors) {
-      const stats = doctorStats[doctor.id]
-      if (stats && !stats.isFull && stats.total < minWait) {
-        minWait = stats.total
-        recommended = doctor
-      }
-    }
-    
-    return recommended
-  }
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [isCheckingIn, setIsCheckingIn] = useState(false)
@@ -169,9 +109,23 @@ const PatientCheckIn = ({
       
       // Check doctor capacity first
       const selectedDoc = doctors.find(d => d.id === appointment.doctor_id)
-      const docStats = doctorStats[appointment.doctor_id]
       
-      if (docStats?.isFull) {
+      // Query current capacity for the doctor
+      const today = new Date()
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+      
+      const { data: queueData } = await supabase
+        .from('appointment_queue')
+        .select('status')
+        .eq('doctor_id', appointment.doctor_id)
+        .gte('created_at', startOfDay.toISOString())
+        .lt('created_at', endOfDay.toISOString())
+        .in('status', ['waiting', 'in-progress'])
+      
+      const total = queueData?.length || 0
+      
+      if (total >= MAX_CAPACITY) {
         setCapacityFullDoctor(selectedDoc)
         setShowCapacityModal(true)
         setIsCheckingIn(false)
@@ -252,56 +206,12 @@ const PatientCheckIn = ({
     onMarkUrgent?.(appointment)
   }
 
-  const recommendedDoctor = getRecommendedDoctor()
-
-  const getCapacityStatus = (stats) => {
-    if (!stats || stats.total === 0) return { label: 'Available', color: 'bg-green-500', text: 'text-green-600', bg: 'bg-green-50' }
-    if (stats.isFull) return { label: 'Full', color: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50' }
-    if (stats.isAlmostFull) return { label: 'High traffic', color: 'bg-orange-500', text: 'text-orange-600', bg: 'bg-orange-50' }
-    return { label: 'Available', color: 'bg-green-500', text: 'text-green-600', bg: 'bg-green-50' }
-  }
-
   return (
     <section className="bg-gray-50 p-8 rounded-lg border border-gray-200">
       <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
         <UserPlus className="w-6 h-6" />
         Patient Check-in
       </h3>
-      
-      {/* Doctor Availability Display */}
-      <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
-        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-          <Activity className="w-4 h-4" />
-          Live Doctor Availability
-        </h4>
-        <div className="space-y-2">
-          {doctors.slice(0, 4).map(doctor => {
-            const stats = doctorStats[doctor.id] || { waiting: 0, inProgress: 0, total: 0, remaining: MAX_CAPACITY, isFull: false }
-            const status = getCapacityStatus(stats)
-            const isRecommended = recommendedDoctor?.id === doctor.id
-            
-            return (
-              <div key={doctor.id} className={`flex items-center justify-between p-2 rounded-lg ${status.bg} ${isRecommended ? 'ring-2 ring-blue-500' : ''}`}>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${status.color}`} />
-                  <span className="text-sm font-medium text-gray-900">{doctor.full_name}</span>
-                  {isRecommended && <Zap className="w-3 h-3 text-blue-600" />}
-                </div>
-                <div className="text-right">
-                  <span className={`text-xs font-bold ${status.text}`}>{stats.total}/{MAX_CAPACITY}</span>
-                  <span className="text-xs text-gray-500 ml-1">{status.label}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        {recommendedDoctor && (
-          <div className="mt-3 p-2 bg-blue-50 rounded-lg flex items-center gap-2">
-            <Zap className="w-4 h-4 text-blue-600" />
-            <span className="text-sm text-blue-700">Recommended: {recommendedDoctor.full_name} (shortest wait)</span>
-          </div>
-        )}
-      </div>
       
       <div className="space-y-4">
         {/* Search Input */}
