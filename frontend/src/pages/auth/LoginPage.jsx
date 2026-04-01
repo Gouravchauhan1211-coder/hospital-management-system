@@ -3,22 +3,31 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Mail, Lock, Eye, EyeOff, Stethoscope } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Stethoscope, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import Select from '../../components/ui/Select'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.string().optional(),
 })
+
+const roleOptions = [
+  { value: 'patient', label: 'Patient' },
+  { value: 'doctor', label: 'Doctor' },
+  { value: 'mediator', label: 'Mediator' },
+]
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('patient')
   const navigate = useNavigate()
-  const { login, user } = useAuthStore()
+  const { login, setRole } = useAuthStore()
 
   const {
     register,
@@ -48,18 +57,19 @@ const LoginPage = () => {
       setIsLoading(true)
       const result = await login(data.email, data.password)
       
-      console.log('Login result:', result)
-      
       if (result.success) {
+        // Use selected role if profile doesn't have one, or override with selected
+        const userRole = selectedRole || result.user?.role || 'patient'
+        
+        // Update role in store
+        setRole(userRole)
+        
         toast.success('Welcome back!')
-        const userRole = result.user?.role || 'patient'
-        console.log('User role:', userRole)
         const dashboardPath = userRole === 'doctor' 
           ? '/doctor/dashboard' 
           : userRole === 'mediator' 
             ? '/mediator/dashboard' 
             : '/patient/dashboard'
-        console.log('Redirecting to:', dashboardPath)
         navigate(dashboardPath)
       } else {
         toast.error(result.error || 'Failed to login. Please check your credentials.')
@@ -117,6 +127,14 @@ const LoginPage = () => {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+
+            <Select
+              label="Login As"
+              options={roleOptions}
+              placeholder="Select your role"
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+            />
 
             <div className="flex items-center justify-end text-sm">
               <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700">

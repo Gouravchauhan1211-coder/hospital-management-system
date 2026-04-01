@@ -2,37 +2,65 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, Clock, ChevronRight, Activity, 
-  Phone, CheckCircle, AlertCircle, XCircle
+  Phone, CheckCircle, AlertCircle, XCircle,
+  Wifi
 } from 'lucide-react'
 import { getDisplayBoard } from '../../services/queueApi'
+import { useDisplayBoard } from '../../hooks/useQueueSubscription'
 
-const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refreshInterval = 5000 }) => {
-  const [displayData, setDisplayData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
+const QueueDisplayBoard = ({ branchId, departmentId, doctorId, autoRefresh = true, refreshInterval = 5000 }) => {
+  // Use the real-time hook if doctorId is provided, otherwise use polling
+  const { 
+    displayData, 
+    isLoading, 
+    error, 
+    lastUpdated, 
+    isSubscribed,
+    refresh 
+  } = doctorId ? useDisplayBoard(doctorId) : {
+    displayData: null,
+    isLoading: true,
+    error: null,
+    lastUpdated: null,
+    isSubscribed: false,
+    refresh: () => {}
+  }
+
+  // Fallback to polling if no real-time subscription
+  const [fallbackData, setFallbackData] = useState(null)
+  const [fallbackLoading, setFallbackLoading] = useState(!doctorId)
+  const [fallbackError, setFallbackError] = useState(null)
+  const [fallbackLastUpdated, setFallbackLastUpdated] = useState(null)
 
   const fetchData = async () => {
     try {
       const data = await getDisplayBoard(branchId, departmentId)
-      setDisplayData(data)
-      setLastUpdated(new Date())
-      setError(null)
+      setFallbackData(data)
+      setFallbackLastUpdated(new Date())
+      setFallbackError(null)
     } catch (err) {
-      setError(err.message)
+      setFallbackError(err.message)
     } finally {
-      setLoading(false)
+      setFallbackLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
-    
-    if (autoRefresh) {
-      const interval = setInterval(fetchData, refreshInterval)
-      return () => clearInterval(interval)
+    if (!doctorId) {
+      fetchData()
+      
+      if (autoRefresh) {
+        const interval = setInterval(fetchData, refreshInterval)
+        return () => clearInterval(interval)
+      }
     }
-  }, [branchId, departmentId, autoRefresh, refreshInterval])
+  }, [branchId, departmentId, autoRefresh, refreshInterval, doctorId])
+
+  // Use fallback data if no doctorId
+  const activeData = doctorId ? displayData : fallbackData
+  const loading = doctorId ? isLoading : fallbackLoading
+  const activeError = doctorId ? error : fallbackError
+  const activeLastUpdated = doctorId ? lastUpdated : fallbackLastUpdated
 
   if (loading) {
     return (
@@ -42,14 +70,14 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
     )
   }
 
-  if (error) {
+  if (activeError) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
         <p className="text-red-700">Failed to load display board</p>
-        <p className="text-red-500 text-sm mt-1">{error}</p>
+        <p className="text-red-500 text-sm mt-1">{activeError}</p>
         <button 
-          onClick={fetchData}
+          onClick={refresh || fetchData}
           className="mt-4 px-4 py-2 bg-red-500 text-gray-800 rounded-lg hover:bg-red-600"
         >
           Retry
@@ -58,7 +86,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
     )
   }
 
-  const { current_token, upcoming_tokens, queue_summary, last_updated } = displayData || {}
+  const { current_token, upcoming_tokens, queue_summary, last_updated } = activeData || {}
 
   return (
     <div className="bg-white rounded-2xl shadow-medical-lg overflow-hidden">
@@ -69,9 +97,22 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
             <Activity className="w-6 h-6" />
             Queue Display Board
           </h2>
-          <div className="text-gray-700 text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Loading...'}
+          <div className="text-gray-700 text-sm flex items-center gap-3">
+            {/* Real-time indicator */}
+            {doctorId && (
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                isSubscribed 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-gray-200 text-gray-600'
+              }`}>
+                <Wifi className="w-3 h-3" />
+                {isSubscribed ? 'Live' : 'Connecting...'}
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              {activeLastUpdated ? activeLastUpdated.toLocaleTimeString() : 'Loading...'}
+            </div>
           </div>
         </div>
       </div>
@@ -114,7 +155,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-gray-700 mb-1">Token Number</div>
-                  <div className="text-5xl font-bold mb-2">{current_token.token_number}</div>
+                  <div className="text-5xl font-bold mb-2">{current_token.queue_number}</div>
                   <div className="text-lg">{current_token.patient_name}</div>
                 </div>
                 <div className="text-right">
@@ -147,7 +188,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
             {upcoming_tokens && upcoming_tokens.length > 0 ? (
               upcoming_tokens.map((token, index) => (
                 <motion.div
-                  key={token.token_number}
+                  key={token.queue_number}
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: index * 0.1 }}
@@ -163,7 +204,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
                     </div>
                     <div>
                       <div className="font-semibold text-gray-800">
-                        {token.token_number}
+                        {token.queue_number}
                       </div>
                       <div className="text-sm text-gray-500">{token.patient_name}</div>
                     </div>
@@ -195,7 +236,7 @@ const QueueDisplayBoard = ({ branchId, departmentId, autoRefresh = true, refresh
 
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-gray-200 text-center text-gray-400 text-sm">
-          Last updated: {new Date(last_updated).toLocaleTimeString()}
+          Last updated: {activeLastUpdated ? activeLastUpdated.toLocaleTimeString() : 'Loading...'}
         </div>
       </div>
     </div>

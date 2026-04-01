@@ -63,8 +63,6 @@ const useAuthStore = create((set, get) => ({
             .eq('id', data.user.id)
             .single()
 
-          console.log('Profile data:', profileData)
-
           if (profileData?.role) {
             role = profileData.role
           } else if (!profileData) {
@@ -76,8 +74,6 @@ const useAuthStore = create((set, get) => ({
               .eq('id', data.user.id)
               .single()
 
-            console.log('Doctor data:', doctorData)
-
             if (doctorData) {
               role = 'doctor'
             } else {
@@ -88,8 +84,6 @@ const useAuthStore = create((set, get) => ({
                 .eq('id', data.user.id)
                 .single()
 
-              console.log('Mediator data:', mediatorData)
-
               if (mediatorData) {
                 role = 'mediator'
               }
@@ -99,8 +93,6 @@ const useAuthStore = create((set, get) => ({
           console.error('Profile lookup error:', e)
           // Continue with default role
         }
-
-        console.log('Detected role:', role)
 
         const userData = {
           id: data.user.id,
@@ -295,15 +287,29 @@ const useAuthStore = create((set, get) => ({
       const tableName = user.role === 'doctor' ? 'doctors' :
         user.role === 'mediator' ? 'mediators' : 'patients'
 
-      const updatePayload = {
+      // Build update payload based on role - only include relevant fields
+      const baseFields = {
         full_name: profileData.fullName,
         phone: profileData.phone,
         address: profileData.address,
-        date_of_birth: profileData.dateOfBirth,
+        date_of_birth: profileData.dateOfBirth || null,
+      }
+
+      // Doctor-specific fields
+      const doctorFields = user.role === 'doctor' ? {
+        bio: profileData.bio,
+        consultation_fee: profileData.consultationFee,
+        experience_years: profileData.experienceYears,
+      } : {}
+
+      // Patient-specific fields (also used for mediators)
+      const patientFields = user.role === 'patient' || user.role === 'mediator' ? {
         blood_group: profileData.bloodGroup,
         emergency_contact: profileData.emergencyContact,
         allergies: profileData.allergies,
-      }
+      } : {}
+
+      const updatePayload = { ...baseFields, ...doctorFields, ...patientFields }
 
       // Filter out undefined/null values
       const cleanUpdate = Object.fromEntries(

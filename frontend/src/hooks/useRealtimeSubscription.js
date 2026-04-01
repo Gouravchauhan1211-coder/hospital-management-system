@@ -37,7 +37,14 @@ export const useRealtimeSubscription = (table, options = {}) => {
         const { data: initialData, error: fetchError } = await query
         
         if (fetchError) throw fetchError
-        setData(initialData || [])
+        // Deduplicate by ID
+        const uniqueData = (initialData || []).reduce((acc, item) => {
+          if (!acc.some(existing => existing.id === item.id)) {
+            acc.push(item)
+          }
+          return acc
+        }, [])
+        setData(uniqueData)
       } catch (err) {
         console.error(`Error fetching ${table}:`, err)
         setError(err.message)
@@ -66,7 +73,12 @@ export const useRealtimeSubscription = (table, options = {}) => {
               if (onInsert) {
                 onInsert(newRecord)
               } else {
-                setData((prev) => [...prev, newRecord])
+                setData((prev) => {
+                  // Check if record already exists to prevent duplicates
+                  const exists = prev.some(item => item.id === newRecord.id)
+                  if (exists) return prev
+                  return [...prev, newRecord]
+                })
               }
               break
             case 'UPDATE':
@@ -107,7 +119,7 @@ export const useRealtimeSubscription = (table, options = {}) => {
         supabase.removeChannel(channelRef.current)
       }
     }
-  }, [table])
+  }, [table, filter, event, initialFetch, onInsert, onUpdate, onDelete])
 
   // Manual refresh function
   const refresh = useCallback(async () => {

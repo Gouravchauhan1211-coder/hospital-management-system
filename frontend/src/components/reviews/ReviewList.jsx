@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getDoctorReviewsApi, deleteReviewApi } from '../../services/api'
+import { getDoctorReviews } from '../../services/api'
+import { supabase } from '../../services/supabase'
 import { StarRating } from './ReviewForm'
 import Modal from '../ui/Modal'
 import ReviewForm from './ReviewForm'
@@ -88,20 +89,26 @@ const ReviewCard = ({ review, currentPatientId, onEdit, onDelete }) => {
 
 const ReviewList = ({ doctorId, patientId, showWriteReview = false }) => {
   const [reviews, setReviews] = useState([])
-  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [editingReview, setEditingReview] = useState(null)
+
+  // Compute stats locally from reviews
+  const stats = reviews.length > 0 ? {
+    average_rating: reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length,
+    total_reviews: reviews.length,
+    rating_distribution: reviews.reduce((acc, r) => {
+      const rating = r.rating || 0
+      acc[rating] = (acc[rating] || 0) + 1
+      return acc
+    }, {})
+  } : null
 
   const fetchReviews = async () => {
     try {
       setLoading(true)
-      const data = await getDoctorReviewsApi(doctorId, page, 10)
-      setReviews(data.reviews || [])
-      setStats(data.stats)
-      setTotalPages(data.pagination?.totalPages || 1)
+      const data = await getDoctorReviews(doctorId)
+      setReviews(data || [])
     } catch (error) {
       console.error('Error fetching reviews:', error)
     } finally {
@@ -111,11 +118,12 @@ const ReviewList = ({ doctorId, patientId, showWriteReview = false }) => {
 
   useEffect(() => {
     fetchReviews()
-  }, [doctorId, page])
+  }, [doctorId])
 
   const handleDelete = async (reviewId) => {
     try {
-      await deleteReviewApi(reviewId, patientId)
+      // Delete via Supabase - implement if needed
+      await supabase.from('reviews').delete().eq('id', reviewId)
       fetchReviews()
     } catch (error) {
       console.error('Error deleting review:', error)

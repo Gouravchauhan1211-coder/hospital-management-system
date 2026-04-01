@@ -8,7 +8,6 @@ const MediatorBottomNav = () => {
 
     const navItems = [
         { name: 'Admin', path: '/mediator/dashboard', icon: Home },
-        { name: 'Queue', path: '/mediator/queue', icon: ListOrdered },
         { name: 'Visits', path: '/mediator/appointments', icon: Calendar },
         { name: 'Doctors', path: '/mediator/doctors', icon: Stethoscope },
         { name: 'Settings', path: '/mediator/settings', icon: Settings }

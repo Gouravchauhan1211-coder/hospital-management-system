@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './store/authStore'
 import useThemeStore from './store/themeStore'
+import { QueueProvider } from './store/queueStore.jsx'
 
 // Layout
 import { DashboardLayout } from './components/layout'
@@ -46,7 +47,6 @@ import DoctorMessagesPage from './pages/doctor/DoctorMessagesPage'
 // Mediator Pages
 import MediatorDashboard from './pages/mediator/MediatorDashboard'
 import MediatorAppointmentsPage from './pages/mediator/MediatorAppointmentsPage'
-import MediatorQueuePage from './pages/mediator/MediatorQueuePage'
 import MediatorDepartmentsPage from './pages/mediator/MediatorDepartmentsPage'
 import MediatorDoctorsPage from './pages/mediator/MediatorDoctorsPage'
 import MediatorPatientsPage from './pages/mediator/MediatorPatientsPage'
@@ -92,7 +92,7 @@ function App() {
   }
 
   return (
-    <>
+    <QueueProvider>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -396,14 +396,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/mediator/queue"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                <MediatorQueuePage />
-              </ProtectedRoute>
-            }
-          />
           {/* Feature-gated mediator routes */}
           <Route
             path="/mediator/departments"
@@ -544,7 +536,7 @@ function App() {
           <Route path="*" element={<Navigate to="/onboarding" replace />} />
         </Routes>
       </Router>
-    </>
+    </QueueProvider>
   )
 }
 

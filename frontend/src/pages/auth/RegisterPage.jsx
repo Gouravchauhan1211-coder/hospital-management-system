@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Mail, Lock, Eye, EyeOff, User, Phone, Stethoscope, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, User, Phone, Stethoscope, ArrowRight, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import Input from '../../components/ui/Input'
@@ -14,6 +14,7 @@ const registerSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   phone: z.string().min(10, 'Please enter a valid phone number'),
+  role: z.string().min(1, 'Please select a role'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   gender: z.string().optional(),
@@ -40,12 +41,18 @@ const bloodGroupOptions = [
   { value: 'O-', label: 'O-' },
 ]
 
+const roleOptions = [
+  { value: 'patient', label: 'Patient' },
+  { value: 'doctor', label: 'Doctor' },
+  { value: 'mediator', label: 'Mediator' },
+]
+
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('patient')
   const navigate = useNavigate()
   const { signup, user } = useAuthStore()
-  const currentRole = user?.role || 'patient'
 
   const {
     register,
@@ -59,7 +66,7 @@ const RegisterPage = () => {
     try {
       setIsLoading(true)
       
-      const result = await signup(data.email, data.password, data.fullName, currentRole)
+      const result = await signup(data.email, data.password, data.fullName, selectedRole)
 
       if (result.success) {
         toast.success('Account created successfully!')
@@ -90,7 +97,7 @@ const RegisterPage = () => {
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800 mb-2">Create Account</h1>
-            <p className="text-gray-500">Sign up as a {currentRole || 'patient'}</p>
+            <p className="text-gray-500">Sign up as a {roleOptions.find(r => r.value === selectedRole)?.label || 'Patient'}</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -119,6 +126,15 @@ const RegisterPage = () => {
               icon={Phone}
               error={errors.phone?.message}
               {...register('phone')}
+            />
+
+            <Select
+              label="Register As"
+              options={roleOptions}
+              placeholder="Select your role"
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              error={errors.role?.message}
             />
 
             <div className="grid grid-cols-2 gap-4">

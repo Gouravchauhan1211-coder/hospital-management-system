@@ -23,9 +23,22 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
-CREATE POLICY "Public profiles are viewable by everyone"
-    ON profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+CREATE POLICY "Users can view own profile"
+    ON profiles FOR SELECT USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Doctors can view other doctor profiles" ON profiles;
+CREATE POLICY "Doctors can view other doctor profiles"
+    ON profiles FOR SELECT USING (
+        EXISTS (SELECT 1 FROM doctors WHERE id = auth.uid()) 
+        OR auth.uid() = id
+    );
+
+DROP POLICY IF EXISTS "Mediators can view all profiles" ON profiles;
+CREATE POLICY "Mediators can view all profiles"
+    ON profiles FOR SELECT USING (
+        EXISTS (SELECT 1 FROM mediators WHERE id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 CREATE POLICY "Users can insert their own profile"
@@ -39,6 +52,8 @@ CREATE INDEX IF NOT EXISTS profiles_role_idx ON profiles(role);
 
 -- ============================================================
 -- 2. DOCTORS TABLE
+-- NOTE: Basic info (full_name, phone, address, date_of_birth, gender, avatar_url) 
+-- is stored in the profiles table. Only doctor-specific fields are here.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS doctors (
     id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
@@ -59,11 +74,15 @@ CREATE TABLE IF NOT EXISTS doctors (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add index for doctors by specialization and availability for faster queries
+CREATE INDEX IF NOT EXISTS doctors_specialization_idx ON doctors(specialization);
+CREATE INDEX IF NOT EXISTS doctors_available_idx ON doctors(is_available) WHERE is_available = true;
+
 ALTER TABLE doctors ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Doctors are viewable by everyone" ON doctors;
-CREATE POLICY "Doctors are viewable by everyone"
-    ON doctors FOR SELECT USING (true);
+CREATE POLICY "Public can view verified doctors"
+    ON doctors FOR SELECT USING (is_verified = true);
 
 DROP POLICY IF EXISTS "Doctors can insert their own profile" ON doctors;
 CREATE POLICY "Doctors can insert their own profile"
@@ -75,6 +94,8 @@ CREATE POLICY "Doctors can update their own profile"
 
 -- ============================================================
 -- 3. PATIENTS TABLE
+-- NOTE: Basic info (full_name, phone, address, date_of_birth, gender, avatar_url) 
+-- is stored in the profiles table. Only patient-specific medical fields are here.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS patients (
     id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
@@ -127,6 +148,10 @@ DROP POLICY IF EXISTS "Mediators can update their own profile" ON mediators;
 CREATE POLICY "Mediators can update their own profile"
     ON mediators FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Mediators can delete their own profile" ON mediators;
+CREATE POLICY "Mediators can delete their own profile"
+    ON mediators FOR DELETE USING (auth.uid() = id);
+
 -- ============================================================
 -- 5. APPOINTMENTS TABLE
 -- ============================================================
@@ -143,10 +168,11 @@ CREATE TABLE IF NOT EXISTS appointments (
     symptoms TEXT,
     amount DECIMAL(10,2) DEFAULT 0,
     status VARCHAR(20) DEFAULT 'pending' 
-        CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled', 'rescheduled', 'no-show')),
+        CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'cancelled', 'rescheduled', 'no-show', 'confirmed')),
     payment_status VARCHAR(20) DEFAULT 'pending'
         CHECK (payment_status IN ('pending', 'paid', 'refunded')),
     notes TEXT,
+    idempotency_key VARCHAR(100) UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -189,6 +215,12 @@ CREATE POLICY "Mediators can update appointments"
 CREATE INDEX IF NOT EXISTS appointments_patient_idx ON appointments(patient_id);
 CREATE INDEX IF NOT EXISTS appointments_doctor_idx ON appointments(doctor_id);
 CREATE INDEX IF NOT EXISTS appointments_date_idx ON appointments(date);
+
+-- Additional indexes for better query performance and time complexity optimization
+CREATE INDEX IF NOT EXISTS appointments_status_idx ON appointments(status);
+CREATE INDEX IF NOT EXISTS appointments_patient_date_idx ON appointments(patient_id, date);
+CREATE INDEX IF NOT EXISTS appointments_doctor_date_idx ON appointments(doctor_id, date);
+CREATE INDEX IF NOT EXISTS appointments_created_idx ON appointments(created_at DESC);
 
 -- ============================================================
 -- 6. MEDICAL RECORDS TABLE
@@ -255,19 +287,78 @@ CREATE INDEX IF NOT EXISTS prescriptions_patient_idx ON prescriptions(patient_id
 CREATE INDEX IF NOT EXISTS prescriptions_doctor_idx ON prescriptions(doctor_id);
 
 -- ============================================================
--- 8. WALK-IN QUEUE TABLE
+-- 8. APPOINTMENT QUEUE TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS appointment_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id UUID REFERENCES appointments(id) ON DELETE CASCADE UNIQUE,  -- Added UNIQUE to prevent duplicates
+    doctor_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    token_number VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'waiting'
+        CHECK (status IN ('waiting', 'in-progress', 'completed')),
+    consultation_started_at TIMESTAMP WITH TIME ZONE,
+    consultation_completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (appointment_id)  -- Ensure each appointment has only one queue entry
+);
+
+ALTER TABLE appointment_queue ENABLE ROW LEVEL SECURITY;
+
+-- Patients can view their own queue entries
+DROP POLICY IF EXISTS "Patients can view own queue" ON appointment_queue;
+CREATE POLICY "Patients can view own queue"
+    ON appointment_queue FOR SELECT USING (auth.uid() = patient_id);
+
+-- Doctors can view their queue
+DROP POLICY IF EXISTS "Doctors can view their queue" ON appointment_queue;
+CREATE POLICY "Doctors can view their queue"
+    ON appointment_queue FOR SELECT USING (auth.uid() = doctor_id);
+
+-- Mediators can view all queue entries
+DROP POLICY IF EXISTS "Mediators can view all queue" ON appointment_queue;
+CREATE POLICY "Mediators can view all queue"
+    ON appointment_queue FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'mediator')
+    );
+
+-- Patients can insert queue entries
+DROP POLICY IF EXISTS "Patients can insert queue entry" ON appointment_queue;
+CREATE POLICY "Patients can insert queue entry"
+    ON appointment_queue FOR INSERT WITH CHECK (auth.uid() = patient_id);
+
+-- Doctors and mediators can update queue
+DROP POLICY IF EXISTS "Doctors can update their queue" ON appointment_queue;
+CREATE POLICY "Doctors can update their queue"
+    ON appointment_queue FOR UPDATE USING (auth.uid() = doctor_id);
+
+DROP POLICY IF EXISTS "Mediators can update queue" ON appointment_queue;
+CREATE POLICY "Mediators can update queue"
+    ON appointment_queue FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'mediator')
+    );
+
+CREATE INDEX IF NOT EXISTS appointment_queue_appointment_idx ON appointment_queue(appointment_id);
+CREATE INDEX IF NOT EXISTS appointment_queue_doctor_idx ON appointment_queue(doctor_id);
+CREATE INDEX IF NOT EXISTS appointment_queue_patient_idx ON appointment_queue(patient_id);
+CREATE INDEX IF NOT EXISTS appointment_queue_status_idx ON appointment_queue(status);
+
+-- ============================================================
+-- 9. WALK-IN QUEUE TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS walk_in_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     patient_name VARCHAR(255) NOT NULL,
     age INTEGER,
     reason TEXT,
     doctor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     doctor_name VARCHAR(255),
     token VARCHAR(20) NOT NULL,
+    priority INTEGER DEFAULT 0 CHECK (priority >= 0 AND priority <= 10),
     status VARCHAR(20) DEFAULT 'waiting'
         CHECK (status IN ('waiting', 'in-progress', 'completed', 'cancelled')),
-    priority INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -275,8 +366,13 @@ CREATE TABLE IF NOT EXISTS walk_in_queue (
 ALTER TABLE walk_in_queue ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Queue is viewable by everyone" ON walk_in_queue;
-CREATE POLICY "Queue is viewable by everyone"
-    ON walk_in_queue FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Patients can view own walk-in queue" ON walk_in_queue;
+CREATE POLICY "Patients can view own walk-in queue"
+    ON walk_in_queue FOR SELECT USING (
+        patient_id = auth.uid() 
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'mediator')
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'doctor')
+    );
 
 DROP POLICY IF EXISTS "Mediators can insert queue entries" ON walk_in_queue;
 CREATE POLICY "Mediators can insert queue entries"
@@ -315,6 +411,10 @@ CREATE POLICY "Mediators can manage departments"
     ON departments FOR ALL USING (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'mediator')
     );
+
+-- Index for faster department lookups
+CREATE INDEX IF NOT EXISTS departments_name_idx ON departments(name);
+CREATE INDEX IF NOT EXISTS departments_active_idx ON departments(is_active) WHERE is_active = true;
 
 -- ============================================================
 -- 10. REVIEWS TABLE
@@ -363,6 +463,10 @@ CREATE POLICY "Users can view own notifications"
 DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
 CREATE POLICY "Users can update own notifications"
     ON notifications FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert notifications" ON notifications;
+CREATE POLICY "Users can insert notifications"
+    ON notifications FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS notifications_read_idx ON notifications(read);
@@ -414,6 +518,151 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- ============================================================-- UNIQUE CONSTRAINTS TO PREVENT DOUBLE BOOKING-- ============================================================
+
+DO $
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_doctor_slot'
+    ) THEN
+        ALTER TABLE appointments 
+        ADD CONSTRAINT unique_doctor_slot UNIQUE (doctor_id, date, time);
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_patient_slot'
+    ) THEN
+        ALTER TABLE appointments 
+        ADD CONSTRAINT unique_patient_slot UNIQUE (patient_id, date, time);
+    END IF;
+END$;
+
+-- ============================================================
+-- PERFORMANCE INDEXES
+-- ============================================================
+
+-- Additional indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date_time_status
+ON appointments(doctor_id, date, time, status);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_patient_date_status
+ON appointments(patient_id, date, status);
+
+CREATE INDEX IF NOT EXISTS idx_walkin_queue_doctor_date
+ON walk_in_queue(doctor_id, created_at);
+
+CREATE INDEX IF NOT EXISTS walk_in_queue_doctor_status_idx ON walk_in_queue(doctor_id, status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS appointment_queue_consultation_started_idx 
+ON appointment_queue(consultation_started_at);
+
+CREATE INDEX IF NOT EXISTS appointment_queue_consultation_completed_idx 
+ON appointment_queue(consultation_completed_at);
+
+CREATE INDEX IF NOT EXISTS appointment_queue_doctor_status_idx ON appointment_queue(doctor_id, status, created_at);
+
+CREATE INDEX IF NOT EXISTS appointment_queue_patient_status_idx ON appointment_queue(patient_id, status);
+
+-- ============================================================
+-- TOKEN GENERATION FUNCTION
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION generate_appointment_token(
+    p_doctor_id UUID,
+    p_patient_id UUID,
+    p_appointment_id UUID
+)
+RETURNS TABLE(token_number INTEGER, queue_id UUID)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+    v_token INTEGER;
+    v_queue_id UUID;
+    v_date DATE := CURRENT_DATE;
+BEGIN
+    LOCK TABLE appointment_queue IN EXCLUSIVE MODE;
+    
+    SELECT COALESCE(MAX(token_number), 0) + 1 INTO v_token
+    FROM appointment_queue 
+    WHERE doctor_id = p_doctor_id 
+      AND DATE(created_at) = v_date;
+    
+    INSERT INTO appointment_queue (
+        appointment_id, doctor_id, patient_id, token_number, status, created_at
+    ) VALUES (
+        p_appointment_id, p_doctor_id, p_patient_id, v_token, 'waiting', NOW()
+    )
+    RETURNING id INTO v_queue_id;
+    
+    RETURN QUERY SELECT v_token, v_queue_id;
+END;
+$;
+
+-- ============================================================
+-- ATOMIC APPOINTMENT BOOKING FUNCTION
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION book_appointment_atomic(
+    p_patient_id UUID, p_doctor_id UUID, p_date DATE, p_time VARCHAR(20),
+    p_amount DECIMAL(10,2), p_symptoms TEXT, p_mode VARCHAR(20) DEFAULT 'offline',
+    p_payment_id VARCHAR(100) DEFAULT NULL
+)
+RETURNS TABLE(appointment_id UUID, success BOOLEAN, error_message TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+    v_appointment_id UUID;
+    v_slot_available BOOLEAN;
+BEGIN
+    SELECT COUNT(*) = 0 INTO v_slot_available
+    FROM appointments
+    WHERE doctor_id = p_doctor_id AND date = p_date AND time = p_time
+    AND status IN ('pending', 'confirmed', 'accepted');
+    
+    IF NOT v_slot_available THEN
+        RETURN QUERY SELECT NULL, FALSE, 'Time slot is no longer available';
+        RETURN;
+    END IF;
+    
+    BEGIN
+        INSERT INTO appointments (patient_id, doctor_id, date, time, amount, symptoms, mode, status, payment_status, notes)
+        VALUES (p_patient_id, p_doctor_id, p_date, p_time, p_amount, p_symptoms, p_mode, 'confirmed',
+                CASE WHEN p_payment_id IS NOT NULL THEN 'paid' ELSE 'pending' END, p_payment_id)
+        RETURNING id INTO v_appointment_id;
+        RETURN QUERY SELECT v_appointment_id, TRUE, NULL;
+    EXCEPTION WHEN unique_violation THEN
+        RETURN QUERY SELECT NULL, FALSE, 'Time slot was just booked by another patient';
+    END;
+END;
+$;
+
+-- ============================================================
+-- IDEMPOTENT APPOINTMENT CREATION FUNCTION
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION create_appointment_idempotent(
+    p_idempotency_key VARCHAR(100), p_patient_id UUID, p_doctor_id UUID,
+    p_date DATE, p_time VARCHAR(20), p_amount DECIMAL(10,2), p_symptoms TEXT,
+    p_mode VARCHAR(20) DEFAULT 'offline'
+)
+RETURNS TABLE(appointment_id UUID, success BOOLEAN, error_message TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+    v_appointment_id UUID;
+BEGIN
+    SELECT id INTO v_appointment_id FROM appointments WHERE idempotency_key = p_idempotency_key;
+    IF FOUND THEN
+        RETURN QUERY SELECT v_appointment_id, TRUE, NULL;
+        RETURN;
+    END IF;
+    RETURN QUERY SELECT * FROM book_appointment_atomic(p_patient_id, p_doctor_id, p_date, p_time, p_amount, p_symptoms, p_mode, p_idempotency_key);
+END;
+$;
+
 -- ============================================================
 -- SHARED RECORDS TABLE (For sharing records between patients and doctors)
 -- ============================================================
@@ -454,17 +703,27 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('hospital-files', 'hospital-files', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- View: Anyone can view public files
 DROP POLICY IF EXISTS "Anyone can view hospital files" ON storage.objects;
 CREATE POLICY "Anyone can view hospital files"
     ON storage.objects FOR SELECT USING (bucket_id = 'hospital-files');
 
+-- Upload: Only authenticated users, files go to user-specific folder
 DROP POLICY IF EXISTS "Authenticated users can upload hospital files" ON storage.objects;
 CREATE POLICY "Authenticated users can upload hospital files"
-    ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'hospital-files' AND auth.role() = 'authenticated');
+    ON storage.objects FOR INSERT WITH CHECK (
+        bucket_id = 'hospital-files' 
+        AND auth.role() = 'authenticated'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+    );
 
+-- Delete: Only owner can delete their files
 DROP POLICY IF EXISTS "Users can delete their own files" ON storage.objects;
 CREATE POLICY "Users can delete their own files"
-    ON storage.objects FOR DELETE USING (bucket_id = 'hospital-files');
+    ON storage.objects FOR DELETE USING (
+        bucket_id = 'hospital-files'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+    );
 
 -- ============================================================
 -- COMPLETE!

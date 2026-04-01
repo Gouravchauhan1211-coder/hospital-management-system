@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { createMedicalRecordApi, uploadMedicalRecordFile } from '../../services/api'
+import { createMedicalRecord, uploadFile } from '../../services/api'
 
 const RECORD_TYPES = [
   { value: 'consultation', label: 'Consultation Notes', icon: 'clipboard' },
@@ -55,23 +55,20 @@ const RecordUpload = ({ patientId, doctorId, doctorName, onSuccess, onCancel }) 
       // Upload file if selected
       if (file) {
         setUploadProgress(20)
-        const uploadResult = await uploadMedicalRecordFile(patientId, file)
-        fileUrl = uploadResult.file_url
+        fileUrl = await uploadFile(file, 'medical-records')
         setUploadProgress(60)
       }
 
-      // Create medical record
-      const recordData = {
-        patient_id: patientId,
-        doctor_id: doctorId,
-        doctor_name: doctorName,
+      // Create medical record via Supabase
+      await createMedicalRecord({
+        patientId,
+        doctorId,
+        doctorName,
         title: title.trim(),
         type,
         description: description.trim() || null,
-        file_url: fileUrl
-      }
-
-      await createMedicalRecordApi(recordData)
+        fileUrl
+      })
       setUploadProgress(100)
 
       onSuccess?.()

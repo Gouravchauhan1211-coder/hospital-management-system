@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
  User,
@@ -48,7 +49,8 @@ const specializations = [
 ]
 
 const DoctorProfilePage = () => {
- const { user, setUser } = useAuthStore()
+ const navigate = useNavigate()
+  const { user, setUser } = useAuthStore()
  
  // State
  const [isLoading, setIsLoading] = useState(true)
@@ -79,8 +81,8 @@ const DoctorProfilePage = () => {
  bio: data?.bio || '',
  consultation_fee: data?.consultation_fee || 0,
  experience: data?.experience || 0,
- qualifications: data?.qualifications || [],
- languages: data?.languages || [],
+ qualifications: Array.isArray(data?.qualifications) ? data.qualifications : [],
+ languages: Array.isArray(data?.languages) ? data.languages : [],
  })
  } catch (error) {
  console.error('Error fetching profile:', error)
@@ -206,6 +208,7 @@ const DoctorProfilePage = () => {
  </div>
  
  {!isEditing ? (
+ <>
  <Button
  variant="primary"
  onClick={() => setIsEditing(true)}
@@ -213,6 +216,14 @@ const DoctorProfilePage = () => {
  <Edit2 className="w-4 h-4" />
  Edit Profile
  </Button>
+ <Button
+ variant="secondary"
+ onClick={() => navigate('/doctor/availability')}
+ >
+ <Calendar className="w-4 h-4" />
+ Set Availability
+ </Button>
+ </>
  ) : (
  <div className="flex gap-3">
  <Button
@@ -228,8 +239,8 @@ const DoctorProfilePage = () => {
  bio: profile?.bio || '',
  consultation_fee: profile?.consultation_fee || 0,
  experience: profile?.experience || 0,
- qualifications: profile?.qualifications || [],
- languages: profile?.languages || [],
+ qualifications: Array.isArray(profile?.qualifications) ? profile.qualifications : [],
+ languages: Array.isArray(profile?.languages) ? profile.languages : [],
  })
  }}
  >
@@ -485,7 +496,7 @@ const DoctorProfilePage = () => {
  {/* Qualifications */}
  <div className="mb-6">
  <label className="block text-sm text-gray-600 mb-2">Qualifications</label>
- {editData.qualifications?.length > 0 ? (
+ {Array.isArray(editData.qualifications) && editData.qualifications.length > 0 ? (
  <div className="space-y-3">
  {editData.qualifications.map((qual, index) => (
  <div
@@ -556,7 +567,7 @@ const DoctorProfilePage = () => {
  </div>
  ) : (
  <div className="flex flex-wrap gap-2">
- {profile?.languages?.length > 0 ? (
+ {Array.isArray(profile?.languages) && profile.languages.length > 0 ? (
  profile.languages.map((lang, index) => (
  <Badge key={index} variant="primary">{lang}</Badge>
  ))

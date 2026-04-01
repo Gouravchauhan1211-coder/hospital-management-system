@@ -8,7 +8,7 @@ const DoctorBottomNav = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/doctor/dashboard', icon: Home },
-        { name: 'Schedule', path: '/doctor/appointments', icon: Calendar },
+        { name: 'Appointments', path: '/doctor/appointments', icon: Calendar },
         { name: 'Patients', path: '/doctor/patients', icon: Users },
         { name: 'Chat', path: '/doctor/messages', icon: MessageSquare },
         { name: 'Profile', path: '/doctor/profile', icon: User }

@@ -28,7 +28,7 @@ const QueueDisplayBoard = ({ branchId, doctorId, autoRefresh = true, refreshInte
  .eq('date', today)
  .in('status', ['waiting', 'called', 'in_consultation'])
  .order('priority', { ascending: true })
- .order('token_number', { ascending: true })
+ .order('queue_number', { ascending: true })
 
  if (branchId) {
  query = query.eq('branch_id', branchId)
@@ -103,7 +103,7 @@ const QueueDisplayBoard = ({ branchId, doctorId, autoRefresh = true, refreshInte
 
  const playAnnouncement = (token) => {
  setAnnouncement({
- token: token.token_number,
+ token: token.queue_number,
  room: token.room_number || token.opd_number,
  patient: token.patient?.full_name
  })
@@ -111,7 +111,7 @@ const QueueDisplayBoard = ({ branchId, doctorId, autoRefresh = true, refreshInte
  // Text-to-speech announcement
  if ('speechSynthesis' in window) {
  const utterance = new SpeechSynthesisUtterance(
- `Token ${token.token_number}, please proceed to room ${token.room_number || token.opd_number}`
+ `Token ${token.queue_number}, please proceed to room ${token.room_number || token.opd_number}`
  )
  utterance.lang = 'en-US'
  utterance.rate = 0.9
@@ -192,7 +192,7 @@ const QueueDisplayBoard = ({ branchId, doctorId, autoRefresh = true, refreshInte
  {currentToken ? (
  <div className="text-center py-8">
  <div className="text-8xl font-bold mb-4 animate-pulse">
- {currentToken.token_number}
+ {currentToken.queue_number}
  </div>
  <div className="text-3xl text-blue-200">
  {currentToken.doctor?.full_name}
@@ -241,7 +241,7 @@ const QueueDisplayBoard = ({ branchId, doctorId, autoRefresh = true, refreshInte
  index === 0 ? 'ring-2 ring-yellow-400' : ''
  }`}
  >
- <div className="text-3xl font-bold">{token.token_number}</div>
+ <div className="text-3xl font-bold">{token.queue_number}</div>
  <div className="text-blue-200 text-sm mt-1">
  {token.department?.name}
  </div>

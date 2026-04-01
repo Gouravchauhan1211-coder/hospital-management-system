@@ -20,6 +20,7 @@ export const USER_ROLES = {
 // Appointment Status
 export const APPOINTMENT_STATUS = {
   PENDING: 'pending',
+  ACCEPTED: 'accepted',
   CONFIRMED: 'confirmed',
   IN_PROGRESS: 'in-progress',
   COMPLETED: 'completed',
@@ -30,6 +31,7 @@ export const APPOINTMENT_STATUS = {
 // Appointment Status Labels
 export const APPOINTMENT_STATUS_LABELS = {
   pending: 'Pending',
+  accepted: 'Accepted',
   confirmed: 'Confirmed',
   'in-progress': 'In Progress',
   completed: 'Completed',
@@ -40,6 +42,7 @@ export const APPOINTMENT_STATUS_LABELS = {
 // Appointment Status Colors (for Badge variants)
 export const APPOINTMENT_STATUS_COLORS = {
   pending: 'warning',
+  accepted: 'info',
   confirmed: 'primary',
   'in-progress': 'info',
   completed: 'success',

@@ -24,44 +24,45 @@ const PatientMessagesPage = () => {
     const [isStarting, setIsStarting] = useState(false)
 
     // Load threads
-    useEffect(() => {
+    const loadThreads = async () => {
         if (!user?.id) return
-        const load = async () => {
-            setIsLoading(true)
-            try {
-                const { data, error } = await supabase
-                    .from('message_threads')
-                    .select('*')
-                    .eq('patient_id', user.id)
-                    .order('last_message_at', { ascending: false, nullsFirst: false })
-                if (error) throw error
+        setIsLoading(true)
+        try {
+            const { data, error } = await supabase
+                .from('message_threads')
+                .select('*')
+                .eq('patient_id', user.id)
+                .order('last_message_at', { ascending: false, nullsFirst: false })
+            if (error) throw error
 
-                // Attach unread counts
-                const withCounts = await Promise.all(
-                    (data || []).map(async (t) => {
-                        const { count } = await supabase
-                            .from('messages')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('thread_id', t.id)
-                            .eq('is_read', false)
-                            .neq('sender_id', user.id)
-                        return { ...t, unread_count: count || 0 }
-                    })
-                )
-                setThreads(withCounts)
+            // Attach unread counts
+            const withCounts = await Promise.all(
+                (data || []).map(async (t) => {
+                    const { count } = await supabase
+                        .from('messages')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('thread_id', t.id)
+                        .neq('sender_id', user.id)
+                        .or('is_read.is.null,is_read.eq.false')
+                    return { ...t, unread_count: count || 0 }
+                })
+            )
+            setThreads(withCounts)
 
-                // Auto-select if threadId in URL
-                if (threadId) {
-                    const found = withCounts.find(t => t.id === threadId)
-                    if (found) setSelectedThread(found)
-                }
-            } catch (err) {
-                console.error(err)
-            } finally {
-                setIsLoading(false)
+            // Auto-select if threadId in URL
+            if (threadId) {
+                const found = withCounts.find(t => t.id === threadId)
+                if (found) setSelectedThread(found)
             }
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setIsLoading(false)
         }
-        load()
+    }
+
+    useEffect(() => {
+        loadThreads()
     }, [user?.id, threadId])
 
     // Load doctors when modal opens
@@ -153,6 +154,11 @@ const PatientMessagesPage = () => {
                         onBack={() => {
                             setSelectedThread(null)
                             navigate('/patient/messages', { replace: true })
+                        }}
+                        onUnreadCleared={(threadId) => {
+                            setThreads(prev => prev.map(t => 
+                                t.id === threadId ? { ...t, unread_count: 0 } : t
+                            ))
                         }}
                     />
                 ) : (

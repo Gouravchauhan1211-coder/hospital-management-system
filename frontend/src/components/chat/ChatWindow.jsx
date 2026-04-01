@@ -6,7 +6,7 @@ import MessageBubble from './MessageBubble'
 import MessageInput from './MessageInput'
 import { Avatar } from '../ui'
 
-const ChatWindow = ({ thread, onBack }) => {
+const ChatWindow = ({ thread, onBack, onUnreadCleared }) => {
     const { user } = useAuthStore()
     const [messages, setMessages] = useState([])
     const [isLoading, setIsLoading] = useState(true)
@@ -47,7 +47,12 @@ const ChatWindow = ({ thread, onBack }) => {
                     .update({ is_read: true })
                     .eq('thread_id', thread.id)
                     .neq('sender_id', user.id)
-                    .eq('is_read', false)
+                    .or('is_read.is.null,is_read.eq.false')
+                
+                // Call callback to clear unread count
+                if (onUnreadCleared) {
+                    onUnreadCleared(thread.id)
+                }
             } catch (err) {
                 setError('Failed to load messages.')
                 console.error(err)
@@ -87,7 +92,10 @@ const ChatWindow = ({ thread, onBack }) => {
                     })
                     // Mark as read if sent by the other person
                     if (newMsg.sender_id !== user.id) {
-                        supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id)
+                        supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id).or('is_read.is.null,is_read.eq.false')
+                        if (onUnreadCleared) {
+                            onUnreadCleared(thread.id)
+                        }
                     }
                 }
             )
@@ -121,6 +129,7 @@ const ChatWindow = ({ thread, onBack }) => {
                     sender_id: user.id,
                     sender_type: userRole,
                     text: text.trim(),
+                    is_read: true, // Mark sender's own message as read
                 })
                 .select()
                 .single()

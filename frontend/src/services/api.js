@@ -71,10 +71,32 @@ export const createUserProfile = async (userId, userData) => {
   return true
 }
 
+// Valid columns for each table - filter out invalid ones
+const validColumns = {
+  doctors: ['id', 'full_name', 'phone', 'address', 'date_of_birth', 'gender', 'avatar_url', 'specialization', 'qualifications', 'experience_years', 'consultation_fee', 'languages', 'location', 'bio', 'is_verified', 'is_available', 'rating', 'total_reviews', 'avg_consultation_minutes', 'availability', 'created_at', 'updated_at'],
+  patients: ['id', 'full_name', 'phone', 'address', 'date_of_birth', 'gender', 'avatar_url', 'blood_group', 'allergies', 'medical_conditions', 'current_medications', 'emergency_contact', 'created_at', 'updated_at'],
+  profiles: ['id', 'role', 'full_name', 'email', 'phone', 'avatar_url', 'date_of_birth', 'gender', 'address', 'created_at', 'updated_at']
+}
+
 export const updateUserProfile = async (table, userId, updates) => {
+  // Fix column names and filter invalid ones
+  let fixedUpdates = {}
+  const allowedCols = validColumns[table] || []
+  
+  for (const [key, value] of Object.entries(updates)) {
+    // Map frontend names to database column names
+    let dbKey = key
+    if (key === 'experience') dbKey = 'experience_years'
+    
+    // Only include if it's a valid column or we don't have a list (backwards compat)
+    if (allowedCols.length === 0 || allowedCols.includes(dbKey)) {
+      fixedUpdates[dbKey] = value
+    }
+  }
+  
   const { data, error } = await supabase
     .from(table)
-    .update(updates)
+    .update(fixedUpdates)
     .eq('id', userId)
     .select()
     .single()
@@ -88,10 +110,13 @@ export const getUserProfile = async (table, userId) => {
     .from(table)
     .select('*')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
 
-  if (error) throw error
-  return data
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116 means no rows returned, which is fine for new users
+    throw error
+  }
+  return data || null
 }
 
 export const getAllPatients = async (filters = {}) => {
@@ -138,9 +163,10 @@ export const getAllDoctors = async (filters = {}) => {
 
 export const getDoctors = async (filters = {}) => {
   // Doctors table has medical info; names/avatars are in profiles
+  // First get doctors, then get their profile info
   let query = supabase
     .from('doctors')
-    .select('*, profile:profiles!id(full_name, avatar_url)')
+    .select('*')
 
   if (filters.specialization) {
     query = query.eq('specialization', filters.specialization)
@@ -156,11 +182,28 @@ export const getDoctors = async (filters = {}) => {
     console.error('Error fetching doctors:', error)
     return []
   }
+  
+  // Get profile data for each doctor
+  const doctorIds = (data || []).map(d => d.id)
+  let profileData = {}
+  if (doctorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', doctorIds)
+    
+    if (profiles) {
+      profiles.forEach(p => {
+        profileData[p.id] = p
+      })
+    }
+  }
+  
   // Flatten profile fields into the doctor object
   return (data || []).map(d => ({
     ...d,
-    full_name: d.profile?.full_name || 'Unknown Doctor',
-    avatar_url: d.profile?.avatar_url || null,
+    full_name: profileData[d.id]?.full_name || 'Unknown Doctor',
+    avatar_url: profileData[d.id]?.avatar_url || null,
   }))
 }
 
@@ -227,12 +270,32 @@ export const getSpecializations = async () => {
 // ============================================================
 
 export const getPatients = async (filters = {}) => {
+  // Join with profiles to get full_name and email
   let query = supabase
     .from('patients')
-    .select('*')
+    .select(`
+      *,
+      profiles:profile_id (
+        full_name,
+        email,
+        phone,
+        avatar_url
+      )
+    `)
 
   if (filters.search) {
-    query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+    // Search via profiles table - need to do a different approach
+    // First get matching profile IDs, then fetch patients
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+      .eq('role', 'patient')
+    
+    if (profileData && profileData.length > 0) {
+      const patientIds = profileData.map(p => p.id)
+      query = query.in('id', patientIds)
+    }
   }
 
   const { data, error } = await query.order('created_at', { ascending: false })
@@ -300,24 +363,73 @@ export const getAvailableTimeSlots = async (doctorId, date, allSlots = null) => 
 
   const slotsToUse = allSlots || defaultSlots
 
-  // Get doctor's availability for the day
-  const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' })
-  const doctor = await getDoctorById(doctorId)
+  try {
+    // Get doctor's availability for the day
+    const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' })
+    const doctor = await getDoctorById(doctorId)
 
-  // If doctor has custom availability, use it
-  if (doctor?.availability && doctor.availability[dayName]) {
-    const doctorSlots = doctor.availability[dayName]
+    // If doctor has custom availability and it's enabled for this day, use it
+    if (doctor?.availability && doctor.availability[dayName]?.enabled) {
+      const doctorSlots = doctor.availability[dayName]?.slots || []
+      if (doctorSlots.length > 0) {
+        const bookedSlots = await getBookedSlots(doctorId, date)
+        return doctorSlots.filter(slot => !bookedSlots.includes(slot))
+      }
+    }
+
+    // Otherwise use default slots minus booked ones
     const bookedSlots = await getBookedSlots(doctorId, date)
-    return doctorSlots.filter(slot => !bookedSlots.includes(slot))
+    return slotsToUse.filter(slot => !bookedSlots.includes(slot))
+  } catch (error) {
+    console.error('Error getting available slots:', error)
+    // Return default slots if there's an error
+    return slotsToUse
   }
-
-  // Otherwise use default slots minus booked ones
-  const bookedSlots = await getBookedSlots(doctorId, date)
-  return slotsToUse.filter(slot => !bookedSlots.includes(slot))
 }
 
 export const createAppointment = async (appointmentData) => {
-  // First check if the slot is still available
+  // Generate idempotency key to prevent duplicate bookings on retry
+  const idempotencyKey = appointmentData.idempotencyKey || 
+    `${appointmentData.patientId}_${appointmentData.doctorId}_${appointmentData.date}_${appointmentData.time}`
+
+  // Try atomic booking first (preferred method after migration)
+  try {
+    const { data: atomicResult, error: atomicError } = await supabase.rpc(
+      'book_appointment_atomic',
+      {
+        p_patient_id: appointmentData.patientId,
+        p_doctor_id: appointmentData.doctorId,
+        p_date: appointmentData.date,
+        p_time: appointmentData.time,
+        p_amount: appointmentData.amount || 0,
+        p_symptoms: appointmentData.symptoms,
+        p_mode: appointmentData.mode || 'offline',
+        p_payment_id: appointmentData.paymentId || null
+      }
+    )
+
+    if (!atomicError && atomicResult && atomicResult.length > 0) {
+      const result = atomicResult[0]
+      if (result.success) {
+        // Fetch the created appointment to return full data
+        const { data: appointmentDataResult, error: fetchError } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('id', result.appointment_id)
+          .single()
+        
+        if (fetchError) throw fetchError
+        return appointmentDataResult
+      } else {
+        throw new Error(result.error_message || 'Failed to book appointment')
+      }
+    }
+    // If RPC fails, fall through to legacy method
+  } catch (rpcError) {
+    console.warn('Atomic booking not available, using legacy method:', rpcError.message)
+  }
+
+  // Legacy method: Check availability then insert (has race condition - kept for backward compatibility)
   const isAvailable = await checkSlotAvailability(
     appointmentData.doctorId,
     appointmentData.date,
@@ -343,11 +455,18 @@ export const createAppointment = async (appointmentData) => {
       amount: appointmentData.amount || 0,
       status: 'pending',
       payment_status: 'pending',
+      idempotency_key: idempotencyKey
     }])
     .select()
     .single()
 
-  if (error) throw error
+  // Check for unique constraint violation (double booking)
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('This time slot is no longer available. Please select another time.')
+    }
+    throw error
+  }
 
   // Create notification for doctor
   try {
@@ -406,7 +525,59 @@ export const getAppointmentById = async (appointmentId) => {
   return data
 }
 
+// Generate token number (A001, A002, etc.)
+const generateTokenNumber = (count) => {
+  const prefix = 'A'
+  const number = count + 1
+  return `${prefix}${String(number).padStart(3, '0')}`
+}
+
+// Get next token number for a doctor on a specific date (legacy - prefer atomic function)
+const getNextTokenNumber = async (doctorId, date) => {
+  // Try atomic token generation first
+  try {
+    const { data: tokenResult, error: tokenError } = await supabase.rpc(
+      'generate_appointment_token',
+      {
+        p_doctor_id: doctorId,
+        p_patient_id: null, // Will be set in the actual insert
+        p_appointment_id: null
+      }
+    )
+    
+    if (!tokenError && tokenResult && tokenResult.length > 0) {
+      return tokenResult[0].token_number
+    }
+  } catch (e) {
+    console.warn('Atomic token generation not available:', e.message)
+  }
+  
+  // Fallback to legacy method
+  const { data, error } = await supabase
+    .from('appointment_queue')
+    .select('token_number')
+    .eq('doctor_id', doctorId)
+    .gte('created_at', new Date(date + 'T00:00:00').toISOString())
+    .lte('created_at', new Date(date + 'T23:59:59').toISOString())
+
+  if (error) throw error
+  
+  const tokens = data.map(q => q.token_number)
+  const maxToken = tokens.length > 0 ? Math.max(...tokens) : 0
+  return maxToken + 1
+}
+
 export const updateAppointment = async (appointmentId, updates) => {
+  // First, get the appointment to get doctor_id and patient_id if status is being updated to accepted
+  const { data: appointmentData, error: fetchError } = await supabase
+    .from('appointments')
+    .select('id, doctor_id, patient_id, patient_name, doctor_name, date')
+    .eq('id', appointmentId)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  // Update appointment
   const { data, error } = await supabase
     .from('appointments')
     .update({
@@ -418,11 +589,126 @@ export const updateAppointment = async (appointmentId, updates) => {
     .single()
 
   if (error) throw error
+
+  // If status is accepted, add to appointment queue
+  if (updates.status === 'accepted') {
+    let queueCreated = false
+    
+    // First, check if queue entry already exists for this appointment
+    const { data: existingQueue } = await supabase
+      .from('appointment_queue')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .single()
+    
+    if (existingQueue) {
+      // Queue entry already exists, skip creation
+      console.warn('Queue entry already exists for appointment:', appointmentId)
+      queueCreated = true
+    } else {
+      // Try atomic token generation first (which also creates the queue entry)
+      try {
+        const { data: tokenResult, error: tokenError } = await supabase.rpc(
+          'generate_appointment_token',
+          {
+            p_doctor_id: appointmentData.doctor_id,
+            p_patient_id: appointmentData.patient_id,
+            p_appointment_id: appointmentId
+          }
+        )
+        
+        if (!tokenError && tokenResult && tokenResult.length > 0) {
+          // RPC successfully created the queue entry
+          queueCreated = true
+        }
+      } catch (e) {
+        console.warn('Atomic token generation failed, using legacy:', e.message)
+      }
+    }
+    
+    // Only manually insert if RPC didn't create the queue entry
+    if (!queueCreated) {
+      const tokenNumber = await getNextTokenNumber(appointmentData.doctor_id, appointmentData.date)
+      
+      const { error: queueError } = await supabase
+        .from('appointment_queue')
+        .insert({
+          appointment_id: appointmentId,
+          doctor_id: appointmentData.doctor_id,
+          patient_id: appointmentData.patient_id,
+          token_number: tokenNumber,
+          status: 'waiting'
+        })
+
+      if (queueError) {
+        console.error('Error adding to queue:', queueError)
+        // Don't fail the appointment update if queue insertion fails
+      }
+    }
+  }
+
   return data
 }
 
 export const cancelAppointment = async (appointmentId) => {
   return updateAppointment(appointmentId, { status: 'cancelled' })
+}
+
+// ============================================================
+// APPOINTMENT QUEUE
+// ============================================================
+export const getAppointmentQueue = async (filters = {}) => {
+  let query = supabase
+    .from('appointment_queue')
+    .select('*')
+
+  if (filters.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters.doctorId) {
+    query = query.eq('doctor_id', filters.doctorId)
+  }
+
+  if (filters.patientId) {
+    query = query.eq('patient_id', filters.patientId)
+  }
+
+  if (filters.appointmentId) {
+    query = query.eq('appointment_id', filters.appointmentId)
+  }
+
+  const { data, error } = await query.order('token_number', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export const updateAppointmentQueueStatus = async (queueId, status) => {
+  const updates = {
+    status,
+    updated_at: new Date().toISOString()
+  }
+  
+  // Set consultation start time when starting consultation
+  if (status === 'in-progress') {
+    updates.consultation_started_at = new Date().toISOString()
+  }
+  
+  // Set consultation completion time when completing
+  if (status === 'completed') {
+    updates.consultation_completed_at = new Date().toISOString()
+  }
+
+  const { data, error } = await supabase
+    .from('appointment_queue')
+    .update(updates)
+    .eq('id', queueId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 // ============================================================
@@ -448,36 +734,52 @@ export const getWalkInQueue = async (filters = {}) => {
   return data
 }
 
+// Generate a random token (fallback when DB query fails)
+const generateRandomToken = () => {
+  const num = Math.floor(Math.random() * 900) + 100
+  return `A${num}`
+}
+
 export const getNextToken = async () => {
-  const { data: queueData } = await supabase
-    .from('walk_in_queue')
-    .select('token')
-    .order('created_at', { ascending: false })
-    .limit(1)
+  try {
+    const { data: queueData, error } = await supabase
+      .from('walk_in_queue')
+      .select('token')
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-  if (!queueData || queueData.length === 0) {
-    return 'A001'
+    if (error || !queueData || queueData.length === 0) {
+      return generateRandomToken()
+    }
+
+    const lastToken = queueData[0].token
+    const num = parseInt(lastToken.replace(/[A-Z]/g, '')) + 1
+    return `A${num.toString().padStart(3, '0')}`
+  } catch (err) {
+    console.warn('Error getting next token, using random:', err)
+    return generateRandomToken()
   }
-
-  const lastToken = queueData[0].token
-  const num = parseInt(lastToken.replace('A', '')) + 1
-  return `A${num.toString().padStart(3, '0')}`
 }
 
 export const addToWalkInQueue = async (queueData) => {
   const token = await getNextToken()
 
+  // Only insert required fields that we know exist
+  const insertData = {
+    patient_name: queueData.name,
+    doctor_id: queueData.doctorId || null,
+    doctor_name: queueData.doctorName || 'Unassigned',
+    token: token,
+    status: 'waiting',
+  }
+
+  // Only add optional fields if they exist in the table
+  if (queueData.reason) insertData.reason = queueData.reason
+  if (queueData.priority) insertData.priority = queueData.priority
+
   const { data, error } = await supabase
     .from('walk_in_queue')
-    .insert([{
-      name: queueData.name,
-      age: queueData.age,
-      reason: queueData.reason,
-      doctor_id: queueData.doctorId || null,
-      doctor_name: queueData.doctorName || 'Unassigned',
-      token: token,
-      status: 'waiting',
-    }])
+    .insert([insertData])
     .select()
     .single()
 
@@ -1045,6 +1347,89 @@ export const setDoctorUnavailableDates = async (doctorId, unavailableDates) => {
   return data
 }
 
+// ============================================================
+// DOCTOR VERIFICATION (Using Supabase)
+// ============================================================
+
+export const getPendingDoctors = async (page = 1, limit = 10, status = 'pending') => {
+  let query = supabase
+    .from('doctors')
+    .select('*, profiles:profile_id(full_name, email, avatar_url)')
+    .eq('is_verified', status === 'pending' ? false : true)
+    .order('created_at', { ascending: false })
+    .range((page - 1) * limit, page * limit - 1)
+
+  const { data, error } = await query
+  
+  if (error) throw error
+  
+  return {
+    doctors: data || [],
+    pagination: {
+      totalPages: Math.ceil(data?.length / limit) || 1
+    }
+  }
+}
+
+export const getDoctorForVerification = async (doctorId) => {
+  const { data, error } = await supabase
+    .from('doctors')
+    .select('*, profiles:profile_id(*)')
+    .eq('id', doctorId)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const verifyDoctor = async (doctorId, verified, reason, mediatorId) => {
+  const { data, error } = await supabase
+    .from('doctors')
+    .update({
+      is_verified: verified,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', doctorId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const getVerificationStats = async () => {
+  const [pending, verified] = await Promise.all([
+    supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_verified', false),
+    supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_verified', true)
+  ])
+
+  return {
+    pending: pending.count || 0,
+    verified: verified.count || 0
+  }
+}
+
+export const updateDoctorStatusApi = async (doctorId, status, reason, mediatorId) => {
+  const { data, error } = await supabase
+    .from('doctors')
+    .update({
+      is_available: status === 'available',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', doctorId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const getDoctorDocuments = async (doctorId) => {
+  // Documents are stored in medical_records or as part of doctor profile
+  // Return empty for now as this was backend-specific
+  return []
+}
+
 // Get doctor's patients (unique patients from appointments)
 export const getDoctorPatients = async (doctorId) => {
   const { data, error } = await supabase
@@ -1137,388 +1522,13 @@ const format = (date, formatStr) => {
 }
 
 // ============================================================
-// REVIEWS APIs (Backend REST API)
+// REVIEWS APIs (Using Supabase)
 // ============================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-
-// Create a new review via backend API
-export const createReviewApi = async (reviewData) => {
-  const response = await fetch(`${API_BASE_URL}/reviews`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(reviewData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.review
-}
-
-// Get doctor reviews with pagination via backend API
-export const getDoctorReviewsApi = async (doctorId, page = 1, limit = 10) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/doctor/${doctorId}?page=${page}&limit=${limit}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get patient reviews via backend API
-export const getPatientReviewsApi = async (patientId) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/patient/${patientId}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.reviews
-}
-
-// Update review via backend API
-export const updateReviewApi = async (reviewId, reviewData) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(reviewData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.review
-}
-
-// Delete review via backend API
-export const deleteReviewApi = async (reviewId, patientId) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}?patient_id=${patientId}`, {
-    method: 'DELETE'
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Check if can review appointment
-export const canReviewAppointment = async (appointmentId, patientId) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/can-review/${appointmentId}?patient_id=${patientId}`)
-  const data = await response.json()
-  return data
-}
+// Note: getDoctorReviews and addDoctorReview are defined earlier in this file
 
 // ============================================================
-// MEDICAL RECORDS APIs (Backend REST API)
+// MEDICAL RECORDS APIs (Using Supabase)
 // ============================================================
 
-// Create medical record via backend API
-export const createMedicalRecordApi = async (recordData) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(recordData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.record
-}
-
-// Get patient medical records via backend API
-export const getPatientMedicalRecordsApi = async (patientId, filters = {}) => {
-  const params = new URLSearchParams(filters)
-  const response = await fetch(`${API_BASE_URL}/medical-records/patient/${patientId}?${params}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get single medical record via backend API
-export const getMedicalRecordApi = async (recordId) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records/${recordId}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.record
-}
-
-// Update medical record via backend API
-export const updateMedicalRecordApi = async (recordId, recordData) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records/${recordId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(recordData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.record
-}
-
-// Delete medical record via backend API
-export const deleteMedicalRecordApi = async (recordId) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records/${recordId}`, {
-    method: 'DELETE'
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Upload medical record file
-export const uploadMedicalRecordFile = async (patientId, file) => {
-  const reader = new FileReader()
-  return new Promise((resolve, reject) => {
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1]
-      const response = await fetch(`${API_BASE_URL}/medical-records/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patient_id: patientId,
-          file_name: file.name,
-          file_type: file.type,
-          file_data: base64
-        })
-      })
-      const data = await response.json()
-      if (!data.success) reject(new Error(data.error))
-      else resolve(data)
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
-// Get download URL for medical record
-export const getMedicalRecordDownloadUrl = async (recordId) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records/${recordId}/download`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Share medical record with doctor
-export const shareMedicalRecord = async (recordId, doctorId, patientId) => {
-  const response = await fetch(`${API_BASE_URL}/medical-records/${recordId}/share`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ doctor_id: doctorId, patient_id: patientId })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// ============================================================
-// PRESCRIPTIONS APIs (Backend REST API)
-// ============================================================
-
-// Create prescription via backend API
-export const createPrescriptionApi = async (prescriptionData) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(prescriptionData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.prescription
-}
-
-// Get patient prescriptions via backend API
-export const getPatientPrescriptionsApi = async (patientId, filters = {}) => {
-  const params = new URLSearchParams(filters)
-  const response = await fetch(`${API_BASE_URL}/prescriptions/patient/${patientId}?${params}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get doctor prescriptions via backend API
-export const getDoctorPrescriptionsApi = async (doctorId, filters = {}) => {
-  const params = new URLSearchParams(filters)
-  const response = await fetch(`${API_BASE_URL}/prescriptions/doctor/${doctorId}?${params}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get single prescription via backend API
-export const getPrescriptionApi = async (prescriptionId) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.prescription
-}
-
-// Update prescription via backend API
-export const updatePrescriptionApi = async (prescriptionId, prescriptionData) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(prescriptionData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.prescription
-}
-
-// Complete prescription
-export const completePrescription = async (prescriptionId) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/complete`, {
-    method: 'POST'
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.prescription
-}
-
-// Get prescription for print
-export const getPrescriptionForPrint = async (prescriptionId) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/print`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.print_data
-}
-
-// Get active medications
-export const getActiveMedications = async (patientId) => {
-  const response = await fetch(`${API_BASE_URL}/prescriptions/patient/${patientId}/active-medications`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// ============================================================
-// DOCTOR VERIFICATION APIs (Mediator - Backend REST API)
-// ============================================================
-
-// Get pending doctor verifications
-export const getPendingDoctors = async (page = 1, limit = 10, status = 'pending') => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/pending?page=${page}&limit=${limit}&status=${status}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get all doctors for mediator
-export const getMediatorDoctors = async (filters = {}) => {
-  const params = new URLSearchParams(filters)
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors?${params}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get doctor details for verification
-export const getDoctorForVerification = async (doctorId) => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/${doctorId}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.doctor
-}
-
-// Verify doctor
-export const verifyDoctor = async (doctorId, verified, reason, mediatorId) => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/${doctorId}/verify`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ verified, reason, mediator_id: mediatorId })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Update doctor status
-export const updateDoctorStatusApi = async (doctorId, status, reason, mediatorId) => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/${doctorId}/status`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status, reason, mediator_id: mediatorId })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get verification stats
-export const getVerificationStats = async () => {
-  const response = await fetch(`${API_BASE_URL}/mediator/verification-stats`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.stats
-}
-
-// Bulk verify doctors
-export const bulkVerifyDoctors = async (doctorIds, verified, reason, mediatorId) => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/bulk-verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ doctor_ids: doctorIds, verified, reason, mediator_id: mediatorId })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get doctor documents
-export const getDoctorDocuments = async (doctorId) => {
-  const response = await fetch(`${API_BASE_URL}/mediator/doctors/${doctorId}/documents`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// ============================================================
-// AVAILABILITY APIs (Backend REST API)
-// ============================================================
-
-// Get doctor availability via backend API
-export const getDoctorAvailabilityApi = async (doctorId) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Update doctor availability via backend API
-export const updateDoctorAvailabilityRest = async (doctorId, availability, avgConsultationMinutes) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ availability, avg_consultation_minutes: avgConsultationMinutes })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get available slots for date
-export const getAvailableSlots = async (doctorId, date, duration = 15) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}/slots/${date}?duration=${duration}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Block time
-export const blockDoctorTime = async (doctorId, blockData) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}/block`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(blockData)
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
-
-// Get blocked times
-export const getBlockedTimes = async (doctorId, fromDate, toDate) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}/blocked?from_date=${fromDate}&to_date=${toDate}`)
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data.blocked_times
-}
-
-// Set break time
-export const setBreakTime = async (doctorId, day, startTime, endTime) => {
-  const response = await fetch(`${API_BASE_URL}/availability/doctor/${doctorId}/break`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ day, start_time: startTime, end_time: endTime })
-  })
-  const data = await response.json()
-  if (!data.success) throw new Error(data.error)
-  return data
-}
+// Note: getMedicalRecords, createMedicalRecord, uploadFile are defined earlier in this file

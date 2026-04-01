@@ -11,12 +11,13 @@ export const FEATURES = {
   labResults: true,
   billing: true,
   healthSummary: true,
+  patientMessages: true,
   messages: true,
   
   // Doctor features
   earnings: true,
   statistics: true,
-  messages: true,
+  doctorMessages: true,
   
   // Mediator features
   analytics: true,
@@ -40,7 +41,7 @@ export const getEnabledPatientFeatures = () => {
     labResults: FEATURES.labResults,
     billing: FEATURES.billing,
     healthSummary: FEATURES.healthSummary,
-    messages: FEATURES.messages,
+    messages: FEATURES.patientMessages,
   }
 }
 
@@ -48,7 +49,7 @@ export const getEnabledDoctorFeatures = () => {
   return {
     earnings: FEATURES.earnings,
     statistics: FEATURES.statistics,
-    messages: FEATURES.messages,
+    messages: FEATURES.doctorMessages,
   }
 }
 
