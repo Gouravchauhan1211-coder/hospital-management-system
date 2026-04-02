@@ -16,7 +16,13 @@ import {
   Clock,
   Users,
   TrendingUp,
-  Building2
+  Building2,
+  Heart,
+  Bone,
+  Shield,
+  User,
+  CheckCircle,
+  Phone
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -28,6 +34,9 @@ import { DashboardLayout } from '../../components/layout'
 import { GlassCard, Button } from '../../components/ui'
 import { PatientCheckIn, DoctorAvailabilityCard } from '../../components/mediator'
 import supabase from '../../services/supabase'
+import { getTokenPrefix, formatTokenNumber } from '../../utils/tokenPrefix'
+import { getDepartments } from '../../services/queueApi'
+import { sendAppointmentConfirmation } from '../../services/sms'
 
 const MAX_CAPACITY = 60
 
@@ -125,10 +134,43 @@ const MediatorDashboard = () => {
   // Form state
   const [newPatient, setNewPatient] = useState({
     name: '',
+    phone: '',
     doctorId: '',
-    priority: 'normal'
+    priority: 'normal',
+    visitType: 'walk-in',
+    department: 'general'
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedDepartment, setSelectedDepartment] = useState('')
+  const [dbDepartments, setDbDepartments] = useState([])
+
+  // Map department ID to specialization (built dynamically from dbDepartments)
+  const departmentToSpecialization = dbDepartments.length > 0
+    ? dbDepartments.reduce((acc, dept) => {
+        const id = dept.code?.toLowerCase() || dept.name.toLowerCase()
+        acc[id] = dept.name
+        return acc
+      }, {})
+    : { 'general': 'General Medicine' }
+
+  // Dynamic departments from Supabase
+  const departments = dbDepartments.length > 0 
+    ? dbDepartments.map(dept => ({
+        id: dept.code?.toLowerCase() || dept.name.toLowerCase(),
+        name: dept.name,
+        icon: dept.name.toLowerCase().includes('card') ? Heart : 
+              dept.name.toLowerCase().includes('ortho') || dept.name.toLowerCase().includes('bone') ? Bone :
+              dept.name.toLowerCase().includes('dental') ? Shield : User,
+        color: 'text-primary'
+      }))
+    : [{ id: 'general', name: 'General', icon: User, color: 'text-primary' }]
+
+  const visitTypes = [
+    { id: 'emergency', label: 'Emergency', color: 'bg-error text-white' },
+    { id: 'followup', label: 'Follow-up', color: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'walkin', label: 'Walk-in', color: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'appointment', label: 'Appointment', color: 'bg-surface-container-high text-on-surface-variant' }
+  ]
 
   // Fetch data
   useEffect(() => {
@@ -145,6 +187,34 @@ const MediatorDashboard = () => {
     return () => {
       supabase.removeChannel(channel)
     }
+  }, [selectedDepartment])
+
+  // Fetch doctors when department changes
+  useEffect(() => {
+    if (!selectedDepartment) return
+    
+    const fetchDoctorsByDepartment = async () => {
+      const specialization = departmentToSpecialization[selectedDepartment]
+      const doctorsData = await getDoctors({ specialization })
+      setDoctors(doctorsData || [])
+    }
+    fetchDoctorsByDepartment()
+  }, [selectedDepartment, dbDepartments])
+
+  // Fetch departments from Supabase
+  useEffect(() => {
+    const fetchDbDepartments = async () => {
+      const result = await getDepartments()
+      if (result.success && result.departments) {
+        setDbDepartments(result.departments)
+        // Set default selected department
+        if (result.departments.length > 0 && !selectedDepartment) {
+          const firstDept = result.departments[0]
+          setSelectedDepartment(firstDept.code?.toLowerCase() || firstDept.name.toLowerCase())
+        }
+      }
+    }
+    fetchDbDepartments()
   }, [])
 
   const fetchData = async () => {
@@ -219,9 +289,12 @@ const MediatorDashboard = () => {
       
       setQueueEntries(todayQueue)
 
-      // Fetch doctors
-      const doctorsData = await getDoctors({})
-      setDoctors(doctorsData || [])
+      // Only fetch all doctors initially if no department selected
+      // Otherwise doctors are fetched by the separate useEffect based on selectedDepartment
+      if (!selectedDepartment) {
+        const doctorsData = await getDoctors({})
+        setDoctors(doctorsData || [])
+      }
 
       // Fetch appointments for check-in (today and future)
       console.log('Fetching appointments...')
@@ -328,6 +401,8 @@ const MediatorDashboard = () => {
       setIsSubmitting(true)
       
       const selectedDoctor = doctors.find(d => d.id === newPatient.doctorId)
+      const specialization = selectedDoctor?.specialization || 'general medicine'
+      const tokenPrefix = getTokenPrefix(specialization)
       
       // Get next token number for the doctor
       const today = new Date()
@@ -341,8 +416,14 @@ const MediatorDashboard = () => {
         .gte('created_at', startOfDay)
         .lt('created_at', endOfDay)
       
-      const tokenNumbers = (existingTokens || []).map(t => parseInt(t.token_number))
+      const tokenNumbers = (existingTokens || []).map(t => {
+        const tokenStr = String(t.token_number)
+        return parseInt(tokenStr.replace(/[^0-9]/g, '')) || 0
+      })
       const nextNumber = tokenNumbers.length > 0 ? Math.max(...tokenNumbers) + 1 : 1
+      
+      // Format token with prefix (e.g., C01, GM05)
+      const formattedToken = formatTokenNumber(nextNumber, tokenPrefix)
       
       // Insert into appointment_queue
       // Note: appointment_queue uses token_number, not queue_number
@@ -352,7 +433,7 @@ const MediatorDashboard = () => {
           .from('appointment_queue')
           .insert([{
             doctor_id: newPatient.doctorId,
-            token_number: String(nextNumber),
+            token_number: formattedToken,
             status: 'waiting'
           }])
         
@@ -385,7 +466,20 @@ const MediatorDashboard = () => {
       }
 
       toast.success('Patient added to queue')
-      setNewPatient({ name: '', doctorId: '', priority: 'normal' })
+      
+      // Send SMS notification if phone number is provided
+      if (newPatient.phone && newPatient.phone.length >= 10) {
+        const selectedDoctor = doctors.find(d => d.id === newPatient.doctorId)
+        await sendAppointmentConfirmation(
+          newPatient.phone,
+          newPatient.name,
+          formattedToken,
+          selectedDoctor?.fullName || 'Doctor',
+          selectedDoctor?.specialization || 'General Medicine'
+        )
+      }
+      
+      setNewPatient({ name: '', phone: '', doctorId: '', priority: 'normal', visitType: 'walkin', department: 'general' })
       fetchData()
     } catch (error) {
       console.error('Error adding patient:', error)
@@ -499,9 +593,6 @@ const MediatorDashboard = () => {
           </div>
         </section>
 
-        {/* Live Doctor Availability */}
-        <DoctorAvailabilityCard doctors={doctors} />
-
         {/* Patient Check-in Card */}
         <PatientCheckIn
           patients={patients}
@@ -511,58 +602,6 @@ const MediatorDashboard = () => {
           onViewHistory={handleViewHistory}
           onMarkUrgent={handleMarkUrgent}
         />
-
-        {/* Queue Command Center */}
-        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-5 text-white shadow-lg">
-          <div className="flex items-center gap-2 mb-4">
-            <Building2 className="w-5 h-5" />
-            <h2 className="font-bold text-lg">Queue Command Center</h2>
-          </div>
-          
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <div className="text-center p-3 bg-white/10 rounded-xl">
-              <p className="text-2xl font-black">{commandCenterStats.totalPatients}</p>
-              <p className="text-[10px] opacity-70">Total</p>
-            </div>
-            <div className="text-center p-3 bg-white/10 rounded-xl">
-              <p className="text-2xl font-black text-yellow-400">{commandCenterStats.waiting}</p>
-              <p className="text-[10px] opacity-70">Waiting</p>
-            </div>
-            <div className="text-center p-3 bg-white/10 rounded-xl">
-              <p className="text-2xl font-black text-blue-400">{commandCenterStats.inProgress}</p>
-              <p className="text-[10px] opacity-70">In Progress</p>
-            </div>
-            <div className="text-center p-3 bg-white/10 rounded-xl">
-              <p className="text-2xl font-black text-green-400">{commandCenterStats.completed}</p>
-              <p className="text-[10px] opacity-70">Done</p>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Doctor Workload Distribution</p>
-            {doctors.slice(0, 4).map(doc => {
-              const load = commandCenterStats.doctorLoad[doc.id] || { total: 0, remaining: MAX_CAPACITY, isFull: false }
-              const pct = Math.round((load.total / MAX_CAPACITY) * 100)
-              
-              return (
-                <div key={doc.id} className="bg-white/5 rounded-lg p-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-medium truncate">{doc.full_name}</span>
-                    <span className={`text-[10px] ${load.isFull ? 'text-red-400' : pct > 70 ? 'text-orange-400' : 'text-green-400'}`}>
-                      {load.total}/{MAX_CAPACITY}
-                    </span>
-                  </div>
-                  <div className="w-full bg-white/10 rounded-full h-1.5">
-                    <div 
-                      className={`h-1.5 rounded-full transition-all ${load.isFull ? 'bg-red-500' : pct > 70 ? 'bg-orange-500' : 'bg-green-500'}`}
-                      style={{ width: `${Math.min(100, pct)}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
 
         {/* Active Controls */}
         <section>
@@ -623,84 +662,217 @@ const MediatorDashboard = () => {
         </div>
         </section>
 
-        {/* Add Patient Form */}
-        <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-50 rounded-xl">
-              <UserPlus className="w-5 h-5 text-blue-700" />
-            </div>
-            <h2 className="font-bold text-lg text-slate-900">New Entry</h2>
+{/* New Entry with Live Doctor Feed */}
+        <section className="space-y-6">
+          {/* Header */}
+          <div>
+            <h2 className="font-bold text-xl text-slate-900">Register Patient</h2>
+            <p className="text-sm text-slate-500">Enter details to join the queue</p>
           </div>
-          
-          <form onSubmit={handleAddPatient} className="space-y-4">
-            <div>
-              <label htmlFor="patientName" className="block text-[11px] font-bold text-slate-600 uppercase mb-1.5 ml-1">
+
+          {/* Form Section */}
+          <div className="bg-surface-container-low rounded-[1.5rem] p-6 space-y-5">
+            {/* Patient Name */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider ml-1">
                 Patient Name
               </label>
               <input
-                id="patientName"
-                name="patientName"
                 type="text"
                 value={newPatient.name}
                 onChange={(e) => setNewPatient(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Full name"
-                autoComplete="off"
-                className="w-full bg-slate-50 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none text-sm text-slate-900"
+                placeholder="e.g. Johnathan Smith"
+                className="w-full bg-surface-container-lowest border-none rounded-xl h-14 px-4 focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant font-medium"
               />
             </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="doctorSelect" className="block text-[11px] font-bold text-slate-600 uppercase mb-1.5 ml-1">
-                  Doctor
-                </label>
-                <div className="relative">
-                  <select
-                    id="doctorSelect"
-                    name="doctorId"
-                    value={newPatient.doctorId}
-                    onChange={(e) => setNewPatient(prev => ({ ...prev, doctorId: e.target.value }))}
-                    className="w-full bg-slate-50 border-none rounded-2xl py-3 px-4 appearance-none focus:ring-2 focus:ring-blue-500/20 text-sm text-slate-900"
+
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider ml-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={newPatient.phone}
+                onChange={(e) => setNewPatient(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+1 (555) 000-0000"
+                className="w-full bg-surface-container-lowest border-none rounded-xl h-14 px-4 focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant font-medium"
+              />
+            </div>
+
+            {/* Visit Type */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider ml-1">
+                Visit Type
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {visitTypes.map(vt => (
+                  <button
+                    key={vt.id}
+                    type="button"
+                    onClick={() => setNewPatient(prev => ({ ...prev, visitType: vt.id }))}
+                    className={`px-4 py-2 rounded-full font-medium text-sm transition-all active:scale-95 ${
+                      newPatient.visitType === vt.id 
+                        ? vt.color 
+                        : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
                   >
-                    <option value="">Select</option>
-                    {doctors.map(doc => (
-                      <option key={doc.id} value={doc.id}>{doc.full_name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="prioritySelect" className="block text-[11px] font-bold text-slate-600 uppercase mb-1.5 ml-1">
-                  Priority
-                </label>
-                <div className="relative">
-                  <select
-                    id="prioritySelect"
-                    name="priority"
-                    value={newPatient.priority}
-                    onChange={(e) => setNewPatient(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full bg-slate-50 border-none rounded-2xl py-3 px-4 appearance-none focus:ring-2 focus:ring-blue-500/20 text-sm text-slate-900"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="vip">VIP</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
+                    {vt.label}
+                  </button>
+                ))}
               </div>
             </div>
-            
+
+            {/* Department Selector */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Select Department
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewPatient(prev => ({ ...prev, department: '' }))
+                    setSelectedDepartment('')
+                  }}
+                  className={`p-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer border-2 ${
+                    !newPatient.department 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className={`font-bold text-[10px] ${!newPatient.department ? 'text-blue-500' : 'text-gray-600'}`}>
+                    All
+                  </span>
+                </button>
+                {departments.map(dept => {
+                  const Icon = dept.icon
+                  const isSelected = newPatient.department === dept.id
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      onClick={() => {
+                        setNewPatient(prev => ({ ...prev, department: dept.id }))
+                        setSelectedDepartment(dept.id)
+                      }}
+                      className={`p-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer border-2 ${
+                        isSelected 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-500' : 'text-gray-500'}`} />
+                      <span className={`font-bold text-[10px] ${isSelected ? 'text-blue-500' : 'text-gray-600'}`}>
+                        {dept.name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Available Doctors Section - Below Form */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-slate-900">Available Doctors</h3>
+              <span className="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+                Active Now
+              </span>
+            </div>
+
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {doctors
+                .sort((a, b) => {
+                  const loadA = commandCenterStats.doctorLoad[a.id]?.total || 0
+                  const loadB = commandCenterStats.doctorLoad[b.id]?.total || 0
+                  return loadA - loadB
+                })
+                .map(doc => {
+                  const load = commandCenterStats.doctorLoad[doc.id] || { total: 0, remaining: MAX_CAPACITY, isFull: false }
+                  const pct = Math.round((load.total / MAX_CAPACITY) * 100)
+                  const isSelected = newPatient.doctorId === doc.id
+                  const isRecommended = !load.isFull && pct < 30
+                  
+                  let statusBadge = null
+                  if (load.isFull) {
+                    statusBadge = { label: 'Almost Full', color: 'bg-error/10 text-error' }
+                  } else if (pct >= 70) {
+                    statusBadge = { label: 'High Volume', color: 'bg-tertiary-fixed/10 text-tertiary-dim' }
+                  } else {
+                    statusBadge = { label: 'Available', color: 'bg-secondary/10 text-secondary' }
+                  }
+
+                  return (
+                    <div
+                      key={doc.id}
+                      onClick={() => setNewPatient(prev => ({ ...prev, doctorId: doc.id }))}
+                      className={`p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all hover:scale-[1.01] ${
+                        isSelected 
+                          ? 'bg-primary/10 border-2 border-primary shadow-[0_8px_32px_rgba(0,104,123,0.1)]' 
+                          : 'bg-surface-container-low hover:bg-surface-container-lowest'
+                      }`}
+                    >
+                      {/* Doctor Avatar */}
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0">
+                        {doc.avatar_url ? (
+                          <img alt={doc.full_name} className="w-full h-full object-cover" src={doc.avatar_url} />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">{doc.full_name?.charAt(0) || 'D'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Doctor Info */}
+                      <div className="flex-grow">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-bold ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
+                            {doc.full_name}
+                          </h4>
+                          {isRecommended && (
+                            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-on-surface-variant">
+                          Wait Time: ~{load.total * 5} mins
+                        </p>
+                        {/* Progress Bar */}
+                        <div className="mt-2 w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all ${
+                              load.isFull ? 'bg-error' : pct >= 70 ? 'bg-tertiary-fixed' : 'bg-secondary'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Status Icon */}
+                      <div className={statusBadge.color.split(' ')[1]}>
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex flex-col gap-3">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 hover:bg-blue-700 transition-all mt-2 disabled:opacity-50"
+              type="button"
+              onClick={handleAddPatient}
+              disabled={isSubmitting || !newPatient.doctorId || !newPatient.name}
+              className="h-16 w-full rounded-[1.5rem] bg-gradient-to-br from-primary to-primary/80 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50"
             >
-              <span>{isSubmitting ? 'Adding...' : 'Generate Token'}</span>
-              <Ticket className="w-4 h-4" />
+              <span>{isSubmitting ? 'Processing...' : 'Generate Token'}</span>
+              <Ticket className="w-5 h-5" />
             </button>
-          </form>
+          </div>
         </section>
 
         {/* Live Queue Table */}
@@ -830,6 +1002,58 @@ const MediatorDashboard = () => {
                   )
                 })
             )}
+          </div>
+        </section>
+
+        {/* Queue Command Center - At Bottom */}
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-5 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <Building2 className="w-5 h-5" />
+            <h2 className="font-bold text-lg">Queue Command Center</h2>
+          </div>
+          
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="text-center p-3 bg-white/10 rounded-xl">
+              <p className="text-2xl font-black">{commandCenterStats.totalPatients}</p>
+              <p className="text-[10px] opacity-70">Total</p>
+            </div>
+            <div className="text-center p-3 bg-white/10 rounded-xl">
+              <p className="text-2xl font-black text-yellow-400">{commandCenterStats.waiting}</p>
+              <p className="text-[10px] opacity-70">Waiting</p>
+            </div>
+            <div className="text-center p-3 bg-white/10 rounded-xl">
+              <p className="text-2xl font-black text-blue-400">{commandCenterStats.inProgress}</p>
+              <p className="text-[10px] opacity-70">In Progress</p>
+            </div>
+            <div className="text-center p-3 bg-white/10 rounded-xl">
+              <p className="text-2xl font-black text-green-400">{commandCenterStats.completed}</p>
+              <p className="text-[10px] opacity-70">Done</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Doctor Workload Distribution</p>
+            {doctors.map(doc => {
+              const load = commandCenterStats.doctorLoad[doc.id] || { total: 0, remaining: MAX_CAPACITY, isFull: false }
+              const pct = Math.round((load.total / MAX_CAPACITY) * 100)
+              
+              return (
+                <div key={doc.id} className="bg-white/5 rounded-lg p-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-medium truncate">{doc.full_name}</span>
+                    <span className={`text-[10px] ${load.isFull ? 'text-red-400' : pct > 70 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {load.total}/{MAX_CAPACITY}
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-1.5">
+                    <div 
+                      className={`h-1.5 rounded-full transition-all ${load.isFull ? 'bg-red-500' : pct > 70 ? 'bg-orange-500' : 'bg-green-500'}`}
+                      style={{ width: `${Math.min(100, pct)}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
       </main>

@@ -2,130 +2,162 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
- User,
- Mail,
- Phone,
- MapPin,
- Calendar,
- Award,
- FileText,
- Edit2,
- Save,
- X,
- Camera,
- Briefcase,
- GraduationCap,
- Clock,
- DollarSign,
- Star,
- CheckCircle,
- AlertCircle
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Award,
+  FileText,
+  Edit2,
+  Save,
+  X,
+  Camera,
+  Briefcase,
+  GraduationCap,
+  Clock,
+  DollarSign,
+  Star,
+  CheckCircle,
+  AlertCircle,
+  Globe,
+  Wallet
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import { getUserProfile, updateUserProfile } from '../../services/api'
+import { supabase } from '../../services/supabase'
 import { DashboardLayout } from '../../components/layout'
-import { GlassCard, Badge, Button, Modal, Input } from '../../components/ui'
+import { GlassCard, Badge, Button, Modal, Input, Avatar } from '../../components/ui'
 
 // Specializations list
 const specializations = [
- 'Cardiology',
- 'Dermatology',
- 'Neurology',
- 'Orthopedics',
- 'Pediatrics',
- 'Psychiatry',
- 'General Medicine',
- 'Surgery',
- 'Gynecology',
- 'Ophthalmology',
- 'ENT',
- 'Dental',
- 'Oncology',
- 'Urology',
- 'Radiology',
- 'Anesthesiology',
-]
+  'Cardiology',
+  'Dermatology',
+  'Neurology',
+  'Orthopedics',
+  'Pediatrics',
+  'Psychiatry',
+  'General Medicine',
+  'Surgery',
+  'Gynecology',
+  'Ophthalmology',
+  'ENT',
+  'Dental',
+  'Oncology',
+  'Urology',
+  'Radiology',
+  'Anesthesiology',
+ ]
 
 const DoctorProfilePage = () => {
- const navigate = useNavigate()
+  const navigate = useNavigate()
   const { user, setUser } = useAuthStore()
  
- // State
- const [isLoading, setIsLoading] = useState(true)
- const [isEditing, setIsEditing] = useState(false)
- const [isSaving, setIsSaving] = useState(false)
- const [profile, setProfile] = useState(null)
- const [editData, setEditData] = useState({})
+  // State
+  const [isLoading, setIsLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [profile, setProfile] = useState(null)
+  const [profileData, setProfileData] = useState(null)
+  const [editData, setEditData] = useState({})
  
- // Modal state
- const [showAvatarModal, setShowAvatarModal] = useState(false)
- const [showQualificationModal, setShowQualificationModal] = useState(false)
- const [newQualification, setNewQualification] = useState({ degree: '', institution: '', year: '' })
+  // Modal state
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [showQualificationModal, setShowQualificationModal] = useState(false)
+  const [newQualification, setNewQualification] = useState({ degree: '', institution: '', year: '' })
 
- // Fetch profile
- useEffect(() => {
- const fetchProfile = async () => {
- if (!user?.id) return
+  // Fetch profile - get data from BOTH profiles table (for avatar) and doctors table
+  useEffect(() => {
+  const fetchFullProfile = async () => {
+  if (!user?.id) return
  
- try {
- const data = await getUserProfile('doctors', user.id)
- setProfile(data)
- setEditData({
- full_name: data?.full_name || '',
- email: data?.email || '',
- phone: data?.phone || '',
- specialization: data?.specialization || '',
- location: data?.location || '',
- bio: data?.bio || '',
- consultation_fee: data?.consultation_fee || 0,
- experience: data?.experience || 0,
- qualifications: Array.isArray(data?.qualifications) ? data.qualifications : [],
- languages: Array.isArray(data?.languages) ? data.languages : [],
- })
- } catch (error) {
- console.error('Error fetching profile:', error)
- toast.error('Failed to load profile')
- } finally {
- setIsLoading(false)
- }
- }
- 
- fetchProfile()
+  setIsLoading(true)
+  try {
+    // Fetch from doctors table
+    const doctorData = await getUserProfile('doctors', user.id)
+    
+    // Fetch from profiles table for general info including avatar
+    const { data: profileRes } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    
+    const fullData = { ...profileRes, ...doctorData, avatar_url: profileRes?.avatar_url }
+    setProfile(fullData)
+    setProfileData(profileRes)
+    
+    setEditData({
+      full_name: fullData?.full_name || '',
+      email: fullData?.email || user?.email || '',
+      phone: fullData?.phone || '',
+      specialization: fullData?.specialization || '',
+      location: fullData?.location || '',
+      bio: fullData?.bio || '',
+      consultation_fee: fullData?.consultation_fee || 0,
+      experience: fullData?.experience_years || fullData?.experience || 0,
+      qualifications: Array.isArray(fullData?.qualifications) ? fullData.qualifications : [],
+      languages: Array.isArray(fullData?.languages) ? fullData.languages : [],
+      avatar_url: profileRes?.avatar_url || '',
+    })
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+    toast.error('Failed to load profile')
+  } finally {
+    setIsLoading(false)
+  }
+  }
+  
+  fetchFullProfile()
  }, [user?.id])
 
- // Handle save
- const handleSave = async () => {
- setIsSaving(true)
- try {
- const updatedProfile = await updateUserProfile('doctors', user.id, {
- full_name: editData.full_name,
- phone: editData.phone,
- specialization: editData.specialization,
- location: editData.location,
- bio: editData.bio,
- consultation_fee: editData.consultation_fee,
- experience: editData.experience,
- qualifications: editData.qualifications,
- languages: editData.languages,
- })
- 
- setProfile(updatedProfile)
- setIsEditing(false)
- 
- // Update auth store if name changed
- if (editData.full_name !== user.fullName) {
- setUser({ ...user, fullName: editData.full_name })
- }
- 
- toast.success('Profile updated successfully')
- } catch (error) {
- toast.error('Failed to update profile')
- } finally {
- setIsSaving(false)
- }
- }
+// Handle save
+  const handleSave = async () => {
+  setIsSaving(true)
+  try {
+    // Update doctors table first
+    const updatedProfile = await updateUserProfile('doctors', user.id, {
+      full_name: editData.full_name,
+      phone: editData.phone,
+      specialization: editData.specialization,
+      location: editData.location,
+      bio: editData.bio,
+      consultation_fee: editData.consultation_fee,
+      experience: editData.experience,
+      qualifications: editData.qualifications,
+      languages: editData.languages,
+    })
+    
+    // Also update profiles table (for avatar and other general info)
+    if (editData.avatar_url !== profileData?.avatar_url) {
+      await supabase
+        .from('profiles')
+        .update({
+          full_name: editData.full_name,
+          phone: editData.phone,
+          avatar_url: editData.avatar_url || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+    }
+  
+  setProfile({ ...updatedProfile, avatar_url: editData.avatar_url })
+  setIsEditing(false)
+  
+  // Update auth store if name changed
+  if (editData.full_name !== user.fullName) {
+    setUser({ ...user, fullName: editData.full_name, avatarUrl: editData.avatar_url })
+  }
+  
+  toast.success('Profile updated successfully')
+  } catch (error) {
+  toast.error('Failed to update profile')
+  } finally {
+  setIsSaving(false)
+  }
+  }
 
  // Add qualification
  const handleAddQualification = () => {
@@ -269,45 +301,38 @@ const DoctorProfilePage = () => {
  </div>
  </div>
 
- <div className="grid grid-cols-1 gap-6">
- {/* Profile Card */}
- <GlassCard className="p-6">
- <div className="text-center">
- {/* Avatar */}
- <div className="relative inline-block">
- <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-accent-purple flex items-center justify-center mx-auto">
- {profile?.avatar_url ? (
- <img 
- src={profile.avatar_url} 
- alt={profile.full_name}
- className="w-full h-full rounded-full object-cover"
- />
- ) : (
- <span className="text-4xl font-bold text-gray-800">
- {profile?.full_name?.charAt(0)?.toUpperCase() || 'D'}
- </span>
- )}
- </div>
- {isEditing && (
- <button
- onClick={() => setShowAvatarModal(true)}
- className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-gray-800 shadow-lg hover:bg-primary-600 transition-colors"
- >
- <Camera className="w-5 h-5" />
- </button>
- )}
- </div>
+<div className="grid grid-cols-1 gap-6">
+  {/* Profile Card */}
+  <GlassCard className="p-6">
+  <div className="text-center">
+  {/* Avatar */}
+  <div className="relative inline-block">
+  <Avatar
+    src={profile?.avatar_url}
+    name={profile?.full_name}
+    size="xl"
+    className="w-32 h-32 mx-auto text-4xl"
+  />
+  {isEditing && (
+    <button
+    onClick={() => setShowAvatarModal(true)}
+    className="absolute bottom-0 right-8 w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-gray-800 shadow-lg hover:bg-primary-600 transition-colors"
+    >
+    <Camera className="w-5 h-5" />
+    </button>
+  )}
+  </div>
 
- {/* Name & Verification */}
- <div className="mt-4">
- <div className="flex items-center justify-center gap-2">
- <h2 className="text-xl font-bold text-gray-800">{profile?.full_name}</h2>
- {profile?.verified && (
- <CheckCircle className="w-5 h-5 text-blue-400" />
- )}
- </div>
- <p className="text-gray-600 mt-1">{profile?.specialization}</p>
- </div>
+  {/* Name & Verification */}
+  <div className="mt-4">
+  <div className="flex items-center justify-center gap-2">
+  <h2 className="text-xl font-bold text-gray-800">{profile?.full_name}</h2>
+  {profile?.is_verified && (
+  <CheckCircle className="w-5 h-5 text-blue-400" />
+  )}
+  </div>
+  <p className="text-gray-600 mt-1">{profile?.specialization}</p>
+  </div>
 
  {/* Stats */}
  <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">

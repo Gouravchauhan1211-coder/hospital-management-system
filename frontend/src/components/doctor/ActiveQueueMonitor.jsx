@@ -48,11 +48,12 @@ const ActiveQueueMonitor = ({
     })
     
     // Add pending appointments
-    pendingAppointments.forEach(apt => {
+    pendingAppointments.forEach((apt, index) => {
+      const patientInitial = apt.patient_name ? apt.patient_name.charAt(0).toUpperCase() : 'P'
       items.push({
         ...apt,
         type: 'pending',
-        token: apt.token_number ? `A${apt.token_number}` : 'PENDING',
+        token: `${patientInitial}${index + 1}`,
         name: apt.patient_name || 'Patient',
         priority: 'medium',
         status: 'pending'

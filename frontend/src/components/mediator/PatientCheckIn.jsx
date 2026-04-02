@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Search, UserPlus, History, AlertTriangle, User, CheckCircle, Clock } from 'lucide-react'
+import { Search, UserPlus, AlertTriangle, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import supabase from '../../services/supabase'
 import { getCurrentIST } from '../../services/queueEngine'
@@ -253,10 +253,10 @@ const PatientCheckIn = ({
         <button 
           onClick={() => selectedPatient && handleCheckIn(selectedPatient)}
           disabled={!selectedPatient || isCheckingIn}
-          className="w-full bg-gradient-to-br from-blue-600 to-blue-700 text-white py-4 rounded-full font-bold shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-br from-primary to-primary/80 text-white h-14 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50"
         >
           {isCheckingIn ? (
-            <>Checking in...</>
+            <>Processing...</>
           ) : (
             <>
               <CheckCircle className="w-5 h-5" />
@@ -264,57 +264,6 @@ const PatientCheckIn = ({
             </>
           )}
         </button>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8 pt-8 border-t border-gray-200">
-        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Quick Actions</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <button 
-            onClick={onViewHistory}
-            className="bg-gray-200 p-3 rounded-lg text-sm font-semibold text-gray-800 flex items-center justify-center gap-2 hover:bg-gray-300 transition-colors"
-          >
-            <History className="w-[18px] h-[18px]" />
-            History
-          </button>
-          <button 
-            onClick={onMarkUrgent}
-            className="bg-red-100 p-3 rounded-lg text-sm font-semibold text-red-600 flex items-center justify-center gap-2 hover:bg-red-200 transition-colors"
-          >
-            <AlertTriangle className="w-[18px] h-[18px]" />
-            Urgent
-          </button>
-        </div>
-      </div>
-
-      {/* Today's Check-ins */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          Today's Check-ins
-        </h4>
-        <div className="space-y-2">
-          {(appointments || [])
-            .filter(apt => apt.status === 'arrived')
-            .slice(0, 3)
-            .map(apt => (
-              <div key={apt.id} className="flex items-center gap-3 p-2 bg-gray-100 rounded-lg">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <User className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{apt.patient_name}</p>
-                  <p className="text-xs text-gray-500">{apt.checked_in_at ? new Date(apt.checked_in_at).toLocaleTimeString() : 'Just now'}</p>
-                </div>
-                <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                  Arrived
-                </span>
-              </div>
-            ))}
-          {appointments.filter(apt => apt.status === 'arrived').length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">No check-ins today</p>
-          )}
-        </div>
       </div>
       
       {/* Capacity Full Modal */}

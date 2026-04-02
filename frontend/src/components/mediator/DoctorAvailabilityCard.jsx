@@ -100,8 +100,8 @@ const DoctorAvailabilityCard = ({ doctors = [] }) => {
         <div className="ml-auto w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
       </div>
       
-      <div className="space-y-2">
-        {doctors.slice(0, 4).map(doctor => {
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {doctors.map(doctor => {
           const stats = doctorStats[doctor.id] || { waiting: 0, inProgress: 0, total: 0, remaining: MAX_CAPACITY, isFull: false }
           const status = getCapacityStatus(stats)
           const isRecommended = recommendedDoctor?.id === doctor.id

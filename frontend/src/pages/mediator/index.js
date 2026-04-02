@@ -1,4 +1,6 @@
 export { default as MediatorDashboard } from './MediatorDashboard'
 export { default as MediatorAppointmentsPage } from './MediatorAppointmentsPage'
 export { default as MediatorQueuePage } from './MediatorQueuePage'
-export { default as MediatorDepartmentsPage } from './MediatorDepartmentsPage'
+export { default as MediatorDoctorsPage } from './MediatorDoctorsPage'
+export { default as MediatorPatientsPage } from './MediatorPatientsPage'
+export { default as MediatorDoctorVerificationPage } from './MediatorDoctorVerificationPage'

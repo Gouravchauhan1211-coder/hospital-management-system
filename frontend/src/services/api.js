@@ -73,7 +73,7 @@ export const createUserProfile = async (userId, userData) => {
 
 // Valid columns for each table - filter out invalid ones
 const validColumns = {
-  doctors: ['id', 'full_name', 'phone', 'address', 'date_of_birth', 'gender', 'avatar_url', 'specialization', 'qualifications', 'experience_years', 'consultation_fee', 'languages', 'location', 'bio', 'is_verified', 'is_available', 'rating', 'total_reviews', 'avg_consultation_minutes', 'availability', 'created_at', 'updated_at'],
+  doctors: ['id', 'full_name', 'phone', 'address', 'date_of_birth', 'gender', 'avatar_url', 'specialization', 'qualifications', 'experience_years', 'consultation_fee', 'languages', 'location', 'bio', 'is_verified', 'is_available', 'rating', 'total_reviews', 'avg_consultation_minutes', 'availability', 'unavailable_dates', 'created_at', 'updated_at'],
   patients: ['id', 'full_name', 'phone', 'address', 'date_of_birth', 'gender', 'avatar_url', 'blood_group', 'allergies', 'medical_conditions', 'current_medications', 'emergency_contact', 'created_at', 'updated_at'],
   profiles: ['id', 'role', 'full_name', 'email', 'phone', 'avatar_url', 'date_of_birth', 'gender', 'address', 'created_at', 'updated_at']
 }
@@ -575,7 +575,10 @@ export const updateAppointment = async (appointmentId, updates) => {
     .eq('id', appointmentId)
     .single()
 
-  if (fetchError) throw fetchError
+  if (fetchError) {
+    console.error('Error fetching appointment:', fetchError)
+    throw fetchError
+  }
 
   // Update appointment
   const { data, error } = await supabase
@@ -588,7 +591,10 @@ export const updateAppointment = async (appointmentId, updates) => {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Error updating appointment:', error)
+    throw error
+  }
 
   // If status is accepted, add to appointment queue
   if (updates.status === 'accepted') {

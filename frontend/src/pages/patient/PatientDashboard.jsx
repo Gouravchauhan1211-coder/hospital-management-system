@@ -13,6 +13,7 @@ import LiveQueueCard from '../../components/patient/LiveQueueCard'
 import SpecialtiesSection from '../../components/patient/SpecialtiesSection'
 import TopDoctorsSection from '../../components/patient/TopDoctorsSection'
 import PatientBottomNav from '../../components/layout/PatientBottomNav'
+import AppointmentDetailModal from '../../components/patient/AppointmentDetailModal'
 
 const PatientDashboard = () => {
   const { user } = useAuthStore()
@@ -29,6 +30,7 @@ const PatientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isDoctorsLoading, setIsDoctorsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
 
   useEffect(() => {
     let queueSubscription = null
@@ -259,7 +261,10 @@ const PatientDashboard = () => {
       {/* Live Queue Section - Today's Appointment */}
       <section className="mb-6">
         {appointment && (appointment.status === 'confirmed' || appointment.status === 'accepted' || appointment.status === 'pending') ? (
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <div 
+            className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 cursor-pointer"
+            onClick={() => setShowAppointmentModal(true)}
+          >
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
               <div className="flex-1">
@@ -438,6 +443,13 @@ const PatientDashboard = () => {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
+      />
+
+      <AppointmentDetailModal
+        appointment={appointment}
+        queueDetails={queueDetails}
+        isOpen={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
       />
     </div>
   )

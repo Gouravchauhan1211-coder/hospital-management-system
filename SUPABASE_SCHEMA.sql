@@ -482,7 +482,8 @@ INSERT INTO departments (name, description) VALUES
     ('Pediatrics', 'Children healthcare'),
     ('General Medicine', 'General health issues'),
     ('Ophthalmology', 'Eye care'),
-    ('ENT', 'Ear, nose, and throat');
+    ('ENT', 'Ear, nose, and throat'),
+    ('Dentistry', 'Teeth and oral care');
 
 -- ============================================================
 -- FUNCTION TO AUTO-CREATE PROFILE ON SIGNUP
@@ -628,7 +629,7 @@ BEGIN
     
     BEGIN
         INSERT INTO appointments (patient_id, doctor_id, date, time, amount, symptoms, mode, status, payment_status, notes)
-        VALUES (p_patient_id, p_doctor_id, p_date, p_time, p_amount, p_symptoms, p_mode, 'confirmed',
+        VALUES (p_patient_id, p_doctor_id, p_date, p_time, p_amount, p_symptoms, p_mode, 'pending',
                 CASE WHEN p_payment_id IS NOT NULL THEN 'paid' ELSE 'pending' END, p_payment_id)
         RETURNING id INTO v_appointment_id;
         RETURN QUERY SELECT v_appointment_id, TRUE, NULL;

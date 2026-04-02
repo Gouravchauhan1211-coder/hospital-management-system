@@ -293,6 +293,7 @@ const useAuthStore = create((set, get) => ({
         phone: profileData.phone,
         address: profileData.address,
         date_of_birth: profileData.dateOfBirth || null,
+        gender: profileData.gender || null,
       }
 
       // Doctor-specific fields
@@ -305,8 +306,10 @@ const useAuthStore = create((set, get) => ({
       // Patient-specific fields (also used for mediators)
       const patientFields = user.role === 'patient' || user.role === 'mediator' ? {
         blood_group: profileData.bloodGroup,
-        emergency_contact: profileData.emergencyContact,
+        emergency_contact: { phone: profileData.emergencyContact, name: '' },
         allergies: profileData.allergies,
+        medical_conditions: profileData.medicalConditions,
+        current_medications: profileData.currentMedications,
       } : {}
 
       const updatePayload = { ...baseFields, ...doctorFields, ...patientFields }
@@ -321,6 +324,10 @@ const useAuthStore = create((set, get) => ({
         .from('profiles')
         .update({
           full_name: profileData.fullName,
+          phone: profileData.phone,
+          address: profileData.address,
+          date_of_birth: profileData.dateOfBirth || null,
+          gender: profileData.gender || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
@@ -339,10 +346,18 @@ const useAuthStore = create((set, get) => ({
       const updatedUser = {
         ...user,
         ...data,
-        fullName: data.full_name,
-        dateOfBirth: data.date_of_birth,
-        bloodGroup: data.blood_group,
-        emergencyContact: data.emergency_contact
+        fullName: data.full_name || user.fullName,
+        phone: data.phone || user.phone,
+        address: data.address || user.address,
+        dateOfBirth: data.date_of_birth || user.dateOfBirth,
+        gender: data.gender || user.gender,
+        bloodGroup: data.blood_group || user.bloodGroup,
+        emergencyContact: typeof data.emergency_contact === 'object' 
+          ? data.emergency_contact?.phone || '' 
+          : data.emergency_contact || user.emergencyContact,
+        allergies: data.allergies || user.allergies,
+        medicalConditions: data.medical_conditions || user.medicalConditions,
+        currentMedications: data.current_medications || user.currentMedications
       }
 
       localStorage.setItem('hospital_user', JSON.stringify(updatedUser))

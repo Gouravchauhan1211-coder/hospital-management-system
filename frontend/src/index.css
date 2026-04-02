@@ -73,3 +73,10 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+/* Glass Panel */
+.glass-panel {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+}

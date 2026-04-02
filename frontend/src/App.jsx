@@ -40,18 +40,13 @@ import DoctorAppointmentsPage from './pages/doctor/DoctorAppointmentsPage'
 import DoctorAvailabilityPage from './pages/doctor/DoctorAvailabilityPage'
 import DoctorPatientsPage from './pages/doctor/DoctorPatientsPage'
 import DoctorProfilePage from './pages/doctor/DoctorProfilePage'
-import DoctorEarningsPage from './pages/doctor/DoctorEarningsPage'
-import DoctorStatisticsPage from './pages/doctor/DoctorStatisticsPage'
 import DoctorMessagesPage from './pages/doctor/DoctorMessagesPage'
 
 // Mediator Pages
 import MediatorDashboard from './pages/mediator/MediatorDashboard'
 import MediatorAppointmentsPage from './pages/mediator/MediatorAppointmentsPage'
-import MediatorDepartmentsPage from './pages/mediator/MediatorDepartmentsPage'
 import MediatorDoctorsPage from './pages/mediator/MediatorDoctorsPage'
 import MediatorPatientsPage from './pages/mediator/MediatorPatientsPage'
-import MediatorAnalyticsPage from './pages/mediator/MediatorAnalyticsPage'
-import MediatorBranchesPage from './pages/mediator/MediatorBranchesPage'
 import MediatorDoctorVerificationPage from './pages/mediator/MediatorDoctorVerificationPage'
 
 // Admin Pages
@@ -340,30 +335,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/doctor/earnings"
-            element={
-              <ProtectedRoute allowedRoles={['doctor']}>
-                {isFeatureEnabled('earnings') ? (
-                  <DoctorEarningsPage />
-                ) : (
-                  <ComingSoon featureName="Earnings" />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/doctor/statistics"
-            element={
-              <ProtectedRoute allowedRoles={['doctor']}>
-                {isFeatureEnabled('statistics') ? (
-                  <DoctorStatisticsPage />
-                ) : (
-                  <ComingSoon featureName="Statistics" />
-                )}
-              </ProtectedRoute>
-            }
-          />
 
           {/* Video Call Route */}
           <Route
@@ -398,18 +369,6 @@ function App() {
           />
           {/* Feature-gated mediator routes */}
           <Route
-            path="/mediator/departments"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                {isFeatureEnabled('departments') ? (
-                  <MediatorDepartmentsPage />
-                ) : (
-                  <ComingSoon featureName="Departments" />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/mediator/doctors"
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
@@ -422,30 +381,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
                 <MediatorPatientsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mediator/analytics"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                {isFeatureEnabled('analytics') ? (
-                  <MediatorAnalyticsPage />
-                ) : (
-                  <ComingSoon featureName="Analytics" />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mediator/branches"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                {isFeatureEnabled('branches') ? (
-                  <MediatorBranchesPage />
-                ) : (
-                  <ComingSoon featureName="Branches" />
-                )}
               </ProtectedRoute>
             }
           />
@@ -508,18 +443,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['mediator']}>
                 <MediatorPatientsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <ProtectedRoute allowedRoles={['mediator']}>
-                {isFeatureEnabled('analytics') ? (
-                  <MediatorAnalyticsPage />
-                ) : (
-                  <ComingSoon featureName="Analytics" />
-                )}
               </ProtectedRoute>
             }
           />

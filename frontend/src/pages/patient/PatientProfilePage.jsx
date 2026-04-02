@@ -16,11 +16,14 @@ import {
     Camera,
     Sun,
     Moon,
-    Laptop
+    Laptop,
+    Activity,
+    FileText
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/authStore'
 import useThemeStore from '../../store/themeStore'
+import { supabase } from '../../services/supabase'
 import { DashboardLayout } from '../../components/layout'
 import { GlassCard, Avatar, Button, Input, Badge } from '../../components/ui'
 
@@ -29,32 +32,71 @@ const PatientProfilePage = () => {
     const { theme, setTheme } = useThemeStore()
     const [isEditing, setIsEditing] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [profileLoading, setProfileLoading] = useState(true)
+    const [profileData, setProfileData] = useState(null)
     const [formData, setFormData] = useState({
         fullName: user?.fullName || '',
         email: user?.email || '',
         phone: user?.phone || '',
         address: user?.address || '',
-        dateOfBirth: user?.dateOfBirth || '',
-        bloodGroup: user?.bloodGroup || '',
-        emergencyContact: user?.emergencyContact || '',
-        allergies: user?.allergies || ''
+        dateOfBirth: user?.date_of_birth || user?.dateOfBirth || '',
+        gender: user?.gender || '',
+        bloodGroup: user?.blood_group || user?.bloodGroup || '',
+        emergencyContact: user?.emergency_contact || user?.emergencyContact || '',
+        allergies: user?.allergies || '',
+        medicalConditions: user?.medical_conditions || '',
+        currentMedications: user?.current_medications || ''
     })
 
-    // Sync formData with user when user changes (e.g. after update)
+    // Fetch full profile data from database
     useEffect(() => {
-        if (user) {
-            setFormData({
-                fullName: user.fullName || '',
-                email: user.email || '',
-                phone: user.phone || '',
-                address: user.address || '',
-                dateOfBirth: user.dateOfBirth || '',
-                bloodGroup: user.bloodGroup || '',
-                emergencyContact: user.emergencyContact || '',
-                allergies: user.allergies || ''
-            })
+        const fetchProfile = async () => {
+            if (!user?.id) return
+            
+            setProfileLoading(true)
+            try {
+                // Fetch from profiles table for general info
+                const { data: profileRes, error: profileErr } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single()
+                
+                // Fetch from patients table for medical info
+                const { data: patientRes, error: patientErr } = await supabase
+                    .from('patients')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single()
+                
+                const fullData = { ...profileRes, ...patientRes }
+                setProfileData(fullData)
+                
+                // Update formData with fetched data
+                setFormData({
+                    fullName: fullData?.full_name || user?.fullName || '',
+                    email: fullData?.email || user?.email || '',
+                    phone: fullData?.phone || user?.phone || '',
+                    address: fullData?.address || user?.address || '',
+                    dateOfBirth: fullData?.date_of_birth || user?.dateOfBirth || '',
+                    gender: fullData?.gender || user?.gender || '',
+                    bloodGroup: fullData?.blood_group || user?.bloodGroup || '',
+                    emergencyContact: typeof fullData?.emergency_contact === 'object' 
+                        ? fullData.emergency_contact?.phone || fullData.emergency_contact?.name || ''
+                        : fullData?.emergency_contact || user?.emergencyContact || '',
+                    allergies: fullData?.allergies || user?.allergies || '',
+                    medicalConditions: fullData?.medical_conditions || user?.medical_conditions || '',
+                    currentMedications: fullData?.current_medications || user?.current_medications || ''
+                })
+            } catch (err) {
+                console.error('Error fetching profile:', err)
+            } finally {
+                setProfileLoading(false)
+            }
         }
-    }, [user])
+        
+        fetchProfile()
+    }, [user?.id])
 
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))
@@ -79,19 +121,46 @@ const PatientProfilePage = () => {
 
     const handleCancel = () => {
         setFormData({
-            fullName: user?.fullName || '',
-            email: user?.email || '',
-            phone: user?.phone || '',
-            address: user?.address || '',
-            dateOfBirth: user?.dateOfBirth || '',
-            bloodGroup: user?.bloodGroup || '',
-            emergencyContact: user?.emergencyContact || '',
-            allergies: user?.allergies || ''
+            fullName: profileData?.full_name || user?.fullName || '',
+            email: profileData?.email || user?.email || '',
+            phone: profileData?.phone || user?.phone || '',
+            address: profileData?.address || user?.address || '',
+            dateOfBirth: profileData?.date_of_birth || user?.dateOfBirth || '',
+            gender: profileData?.gender || user?.gender || '',
+            bloodGroup: profileData?.blood_group || user?.bloodGroup || '',
+            emergencyContact: typeof profileData?.emergency_contact === 'object' 
+                ? profileData.emergency_contact?.phone || profileData.emergency_contact?.name || ''
+                : profileData?.emergency_contact || user?.emergencyContact || '',
+            allergies: profileData?.allergies || user?.allergies || '',
+            medicalConditions: profileData?.medical_conditions || user?.medical_conditions || '',
+            currentMedications: profileData?.current_medications || user?.current_medications || ''
         })
         setIsEditing(false)
     }
 
     const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+    const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
+
+    // Helper to format date for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return ''
+        try {
+            const date = new Date(dateStr)
+            return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        } catch {
+            return dateStr
+        }
+    }
+
+    if (profileLoading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+            </DashboardLayout>
+        )
+    }
 
     return (
         <DashboardLayout>
@@ -139,7 +208,7 @@ const PatientProfilePage = () => {
                             <div className="flex flex-col items-center">
                                 <div className="relative group">
                                     <Avatar
-                                        src={user?.avatar}
+                                        src={profileData?.avatar_url || user?.avatarUrl}
                                         name={formData.fullName}
                                         size="xl"
                                         className="w-24 h-24 md:w-28 md:h-28 text-4xl shadow-2xl ring-4 ring-white dark:ring-slate-900 transition-all"
@@ -195,20 +264,50 @@ const PatientProfilePage = () => {
                                                 <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">Phone</label>
                                                 {isEditing ? (
                                                     <input
+                                                        type="tel"
                                                         value={formData.phone}
                                                         onChange={(e) => handleChange('phone', e.target.value)}
                                                         className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-2 text-sm font-bold text-gray-900 dark:text-white transition-colors"
                                                     />
                                                 ) : (
-                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.phone || 'N/A'}</p>
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.phone || 'Add phone'}</p>
                                                 )}
                                                 <Phone className="absolute top-5 right-5 w-4 h-4 text-gray-200 dark:text-slate-700" />
                                             </div>
                                             <div className="bg-gray-50/80 dark:bg-slate-800/50 p-5 rounded-3xl border border-gray-100/50 dark:border-slate-700/50 relative">
-                                                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">Wait Type</label>
-                                                <p className="text-sm font-bold text-blue-600 dark:text-blue-400">Standard</p>
-                                                <Calendar className="absolute top-5 right-5 w-4 h-4 text-gray-200 dark:text-slate-700" />
+                                                <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">Gender</label>
+                                                {isEditing ? (
+                                                    <select
+                                                        value={formData.gender}
+                                                        onChange={(e) => handleChange('gender', e.target.value)}
+                                                        className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-2 text-sm font-bold text-gray-900 dark:text-white transition-colors"
+                                                    >
+                                                        <option value="">Select</option>
+                                                        {genders.map(g => (
+                                                            <option key={g} value={g}>{g}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.gender || 'Not set'}</p>
+                                                )}
                                             </div>
+                                        </div>
+                                        
+                                        <div className="bg-gray-50/80 dark:bg-slate-800/50 p-5 rounded-3xl border border-gray-100/50 dark:border-slate-700/50 relative">
+                                            <label className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">Date of Birth</label>
+                                            {isEditing ? (
+                                                <input
+                                                    type="date"
+                                                    value={formData.dateOfBirth?.split('T')[0] || ''}
+                                                    onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-3 text-sm font-bold text-gray-900 dark:text-white transition-colors"
+                                                />
+                                            ) : (
+                                                <div className="flex items-center gap-3">
+                                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.dateOfBirth ? formatDate(formData.dateOfBirth) : 'Add date of birth'}</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="bg-gray-50/80 dark:bg-slate-800/50 p-5 rounded-3xl border border-gray-100/50 dark:border-slate-700/50 relative">
@@ -278,15 +377,49 @@ const PatientProfilePage = () => {
                                         <div className="h-px bg-gray-200/50 dark:bg-slate-700/50" />
 
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact</span>
+                                            <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact (Phone)</span>
                                             {isEditing ? (
                                                 <input
+                                                    type="tel"
                                                     value={formData.emergencyContact}
                                                     onChange={(e) => handleChange('emergencyContact', e.target.value)}
                                                     className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-2 text-sm font-bold text-gray-900 dark:text-white mt-1 transition-colors"
+                                                    placeholder="+91 98765 43210"
                                                 />
                                             ) : (
                                                 <p className="text-sm font-bold text-green-600 dark:text-green-400">{formData.emergencyContact || 'Add contact'}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="h-px bg-gray-200/50 dark:bg-slate-700/50" />
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">Medical Conditions</span>
+                                            {isEditing ? (
+                                                <input
+                                                    value={formData.medicalConditions}
+                                                    onChange={(e) => handleChange('medicalConditions', e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-2 text-sm font-bold text-gray-900 dark:text-white mt-1 transition-colors"
+                                                    placeholder="e.g. Diabetes, Hypertension"
+                                                />
+                                            ) : (
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.medicalConditions || 'None reported'}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="h-px bg-gray-200/50 dark:bg-slate-700/50" />
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">Current Medications</span>
+                                            {isEditing ? (
+                                                <input
+                                                    value={formData.currentMedications}
+                                                    onChange={(e) => handleChange('currentMedications', e.target.value)}
+                                                    className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-2 text-sm font-bold text-gray-900 dark:text-white mt-1 transition-colors"
+                                                    placeholder="e.g. Metformin 500mg"
+                                                />
+                                            ) : (
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formData.currentMedications || 'None'}</p>
                                             )}
                                         </div>
                                     </div>
